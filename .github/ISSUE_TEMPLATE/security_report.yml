@@ -1,0 +1,50 @@
+name: Security Concern
+description: Report a non-sensitive security hardening concern for triage
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not disclose exploitable zero-day details in public issues.
+        If the report is sensitive, use private maintainer contact first.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Security concern summary
+      description: Describe the concern at a high level.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Smart contract
+        - Backend API
+        - Frontend UI
+        - Authentication/authorization
+        - Dependency/supply chain
+        - Infrastructure/CI
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Estimated severity
+      options:
+        - Low
+        - Medium
+        - High
+        - Critical
+    validations:
+      required: true
+
+  - type: textarea
+    id: recommendations
+    attributes:
+      label: Mitigation recommendations
+      description: Share mitigations, guardrails, or follow-up checks.

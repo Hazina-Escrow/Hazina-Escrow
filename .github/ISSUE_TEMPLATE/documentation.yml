@@ -1,0 +1,41 @@
+name: Documentation Improvement
+description: Suggest updates to docs, onboarding guides, or examples
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is unclear or missing?
+      description: Describe the documentation problem for contributors or users.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_change
+    attributes:
+      label: Proposed documentation change
+      description: Explain what should be added, removed, or rewritten.
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Where should this change live?
+      placeholder: |
+        - README.md
+        - CONTRIBUTING.md
+        - backend/src/... inline comments
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] Documentation is updated in the correct file(s)
+        - [ ] Examples or commands are valid and tested
+        - [ ] Terminology is consistent with the project
+    validations:
+      required: true

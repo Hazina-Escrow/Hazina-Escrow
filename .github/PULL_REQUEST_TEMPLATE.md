@@ -1,46 +1,48 @@
-## What does this PR do?
+## Summary
 
-<!-- One paragraph. Link the issue it closes. -->
+<!-- What changed and why in 2-5 bullets. -->
+
+## Linked Issues
 
 Closes #
 
----
-
-## Type of change
+## Type of Change
 
 - [ ] Bug fix
-- [ ] New feature / enhancement
-- [ ] Refactor (no behaviour change)
+- [ ] Feature
+- [ ] Refactor (no behavior change)
 - [ ] Tests
 - [ ] Infrastructure / CI
 - [ ] Documentation
 
----
+## Changes
 
-## How to test
+- [ ] Backend
+- [ ] Frontend
+- [ ] Smart contract
+- [ ] Tooling / CI
 
-<!-- Step-by-step instructions a reviewer can follow to verify this works. -->
+## How To Test
 
-1. Start backend: `cd backend && npm run dev`
-2. Start frontend: `cd frontend && npm run dev`
-3. ...
+<!-- Step-by-step commands a reviewer can run. -->
 
-**Demo mode** (no Stellar wallet needed): check "Demo Mode" in the Query modal.
+1. `npm install`
+2. `npm run install:all`
+3. Add issue-specific test steps here.
 
----
+## Risk and Rollback
+
+- Risk level: [ ] Low [ ] Medium [ ] High
+- Rollback plan:
 
 ## Checklist
 
-- [ ] `npm test` passes in `backend/` and `frontend/`
-- [ ] `npm run lint` returns zero warnings
-- [ ] No new `any` types introduced
-- [ ] No `console.log` left in committed code — used `logger` instead
-- [ ] No hardcoded secrets, wallet addresses, or API keys
-- [ ] New logic has at least one test (or I've explained why it doesn't need one)
-- [ ] I've read [CONTRIBUTING.md](../CONTRIBUTING.md)
+- [ ] Tests added or updated where needed
+- [ ] Existing tests pass locally
+- [ ] Docs updated if behavior changed
+- [ ] No secrets or private keys added
+- [ ] I read [CONTRIBUTING.md](../CONTRIBUTING.md)
 
----
+## Screenshots (UI only)
 
-## Screenshots (frontend changes only)
-
-<!-- Before / After side-by-side if the UI changed. -->
+<!-- Before/after screenshots for frontend-visible changes. -->

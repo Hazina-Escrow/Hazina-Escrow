@@ -3,3 +3,6 @@ contact_links:
   - name: Ask a question / architecture discussion
     url: https://github.com/Anuoluwapo25/Hazina-Escrow/discussions
     about: Not sure where to start? Open a discussion first.
+  - name: Security disclosure guidance
+    url: https://github.com/Anuoluwapo25/Hazina-Escrow/security
+    about: Review the security policy before sharing sensitive details.
