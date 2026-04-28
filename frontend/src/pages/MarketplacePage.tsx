@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Helmet } from "react-helmet-async";
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Helmet } from 'react-helmet-async';
 import {
   Search,
   SlidersHorizontal,
@@ -10,27 +10,30 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-} from "lucide-react";
-import { api, DatasetMeta } from "../lib/api";
-import { DATA_TYPE_META } from "../lib/utils";
-import DatasetCard from "../components/ui/DatasetCard";
-import QueryModal from "../components/ui/QueryModal";
-import { DatasetCardSkeleton } from "../components/ui/SkeletonLoader";
-import clsx from "clsx";
-import { useI18n } from "../i18n";
+  Check,
+  RotateCcw,
+} from 'lucide-react';
+import { api, DatasetMeta } from '../lib/api';
+import { DATA_TYPE_META } from '../lib/utils';
+import DatasetCard from '../components/ui/DatasetCard';
+import QueryModal from '../components/ui/QueryModal';
+import { DatasetCardSkeleton } from '../components/ui/SkeletonLoader';
+import clsx from 'clsx';
+import { useI18n } from '../i18n';
 
 export default function MarketplacePage() {
   const { locale, t } = useI18n();
   /** Raw input value — updated on every keystroke. */
-  const [searchInput, setSearchInput] = useState("");
+  const [searchInput, setSearchInput] = useState('');
   /** Debounced value used in the query — updated 400 ms after typing stops. */
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [sort, setSort] = useState("popular");
+  const [search, setSearch] = useState('');
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [minQueries, setMinQueries] = useState('');
+  const [sort, setSort] = useState('popular');
   const [page, setPage] = useState(1);
-  const [selectedDataset, setSelectedDataset] = useState<DatasetMeta | null>(
-    null,
-  );
+  const [selectedDataset, setSelectedDataset] = useState<DatasetMeta | null>(null);
   const pageSize = 12;
 
   // Debounce: only update the query key 400 ms after the user stops typing.
@@ -39,9 +42,23 @@ export default function MarketplacePage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const { data, isLoading: loading, refetch } = useQuery({
-    queryKey: ["datasets", page, search, typeFilter, sort],
-    queryFn: () => api.getDatasets({ page, limit: pageSize, search, type: typeFilter, sort }),
+  const {
+    data,
+    isLoading: loading,
+    refetch,
+  } = useQuery({
+    queryKey: ['datasets', page, search, selectedTypes, minPrice, maxPrice, minQueries, sort],
+    queryFn: () =>
+      api.getDatasets({
+        page,
+        limit: pageSize,
+        search,
+        types: selectedTypes,
+        minPrice: minPrice ? Number(minPrice) : undefined,
+        maxPrice: maxPrice ? Number(maxPrice) : undefined,
+        minQueries: minQueries ? Number(minQueries) : undefined,
+        sort,
+      }),
   });
 
   const datasets = data?.data || [];
@@ -50,85 +67,149 @@ export default function MarketplacePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, sort, typeFilter]);
+  }, [search, sort, selectedTypes, minPrice, maxPrice, minQueries]);
 
   const currentPage = Math.min(page, totalPages);
-  
+
   const pageStart = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const pageEnd = total === 0 ? 0 : Math.min(currentPage * pageSize, total);
-  
+
   const visiblePages = useMemo(() => {
     const start = Math.max(1, currentPage - 1);
     const end = Math.min(totalPages, start + 2);
     const normalizedStart = Math.max(1, end - 2);
-    return Array.from(
-      { length: end - normalizedStart + 1 },
-      (_, index) => normalizedStart + index,
-    );
+    return Array.from({ length: end - normalizedStart + 1 }, (_, index) => normalizedStart + index);
   }, [currentPage, totalPages]);
 
   const typeFilters = [
-    { value: "", label: t("dataTypes.all") },
-    { value: "whale-wallets", label: t("dataTypes.whaleWallets") },
-    { value: "trading-signals", label: t("dataTypes.tradingSignals") },
-    { value: "yield-data", label: t("dataTypes.yieldData") },
-    { value: "risk-scores", label: t("dataTypes.riskScores") },
-    { value: "nft-data", label: t("dataTypes.nftData") },
-    { value: "sentiment", label: t("dataTypes.sentiment") },
+    { value: 'whale-wallets', label: t('dataTypes.whaleWallets') },
+    { value: 'trading-signals', label: t('dataTypes.tradingSignals') },
+    { value: 'yield-data', label: t('dataTypes.yieldData') },
+    { value: 'risk-scores', label: t('dataTypes.riskScores') },
+    { value: 'nft-data', label: t('dataTypes.nftData') },
+    { value: 'sentiment', label: t('dataTypes.sentiment') },
   ];
 
+  const hasActiveFilters =
+    selectedTypes.length > 0 || Boolean(minPrice || maxPrice || minQueries || searchInput);
+
+  const toggleTypeFilter = (type: string) => {
+    setSelectedTypes(current =>
+      current.includes(type) ? current.filter(value => value !== type) : [...current, type],
+    );
+  };
+
+  const resetFilters = () => {
+    setSearchInput('');
+    setSearch('');
+    setSelectedTypes([]);
+    setMinPrice('');
+    setMaxPrice('');
+    setMinQueries('');
+  };
+
   const sortOptions = [
-    { value: "popular", label: t("marketplace.sorts.popular"), icon: TrendingUp },
-    { value: "price-asc", label: t("marketplace.sorts.priceAsc"), icon: DollarSign },
-    { value: "price-desc", label: t("marketplace.sorts.priceDesc"), icon: DollarSign },
-    { value: "newest", label: t("marketplace.sorts.newest"), icon: Clock },
+    { value: 'popular', label: t('marketplace.sorts.popular'), icon: TrendingUp },
+    { value: 'price-asc', label: t('marketplace.sorts.priceAsc'), icon: DollarSign },
+    { value: 'price-desc', label: t('marketplace.sorts.priceDesc'), icon: DollarSign },
+    { value: 'newest', label: t('marketplace.sorts.newest'), icon: Clock },
   ];
 
   return (
     <div className="min-h-screen pt-28 pb-20">
       <Helmet>
         <title>Marketplace | Premium Web3 Data</title>
-        <meta name="description" content="Browse and buy premium on-chain intelligence datasets. Real-time whale movements, yield data, and sentiment analysis." />
+        <meta
+          name="description"
+          content="Browse and buy premium on-chain intelligence datasets. Real-time whale movements, yield data, and sentiment analysis."
+        />
         <meta property="og:title" content="Hazina Data Marketplace" />
-        <meta property="og:description" content="Premium on-chain intelligence, priced per query." />
+        <meta
+          property="og:description"
+          content="Premium on-chain intelligence, priced per query."
+        />
       </Helmet>
 
       <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
         <div className="mb-10">
           <p className="text-gold text-sm font-body font-medium tracking-widest uppercase mb-2">
-            {t("marketplace.eyebrow")}
+            {t('marketplace.eyebrow')}
           </p>
           <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground mb-3">
-            {t("marketplace.title")}
+            {t('marketplace.title')}
           </h1>
-          <p className="text-foreground-muted font-body text-lg">
-            {t("marketplace.subtitle")}
-          </p>
+          <p className="text-foreground-muted font-body text-lg">{t('marketplace.subtitle')}</p>
         </div>
 
         {/* Search + Filters */}
         <div className="glass-card p-5 mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col xl:flex-row gap-4">
             {/* Search */}
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
               <input
                 type="text"
-                placeholder={t("marketplace.searchPlaceholder")}
+                placeholder={t('marketplace.searchPlaceholder')}
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                onChange={e => setSearchInput(e.target.value)}
                 className="w-full bg-void/60 border border-border/60 rounded-xl pl-11 pr-4 py-3 text-sm font-body text-foreground placeholder:text-muted focus:outline-none focus:border-gold/40 transition-colors"
               />
               {searchInput && (
                 <button
-                  onClick={() => { setSearchInput(""); setSearch(""); }}
+                  onClick={() => {
+                    setSearchInput('');
+                    setSearch('');
+                  }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
-                  aria-label={t("common.actions.resetSearch")}
+                  aria-label={t('common.actions.resetSearch')}
                 >
                   <X className="w-4 h-4" />
                 </button>
               )}
+            </div>
+
+            {/* Range filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 xl:w-[32rem]">
+              <label className="relative">
+                <span className="sr-only">{t('marketplace.filters.minPrice')}</span>
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={t('marketplace.filters.minPrice')}
+                  value={minPrice}
+                  onChange={e => setMinPrice(e.target.value)}
+                  className="w-full bg-void/60 border border-border/60 rounded-xl pl-9 pr-3 py-3 text-sm font-body text-foreground placeholder:text-muted focus:outline-none focus:border-gold/40 transition-colors"
+                />
+              </label>
+              <label className="relative">
+                <span className="sr-only">{t('marketplace.filters.maxPrice')}</span>
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={t('marketplace.filters.maxPrice')}
+                  value={maxPrice}
+                  onChange={e => setMaxPrice(e.target.value)}
+                  className="w-full bg-void/60 border border-border/60 rounded-xl pl-9 pr-3 py-3 text-sm font-body text-foreground placeholder:text-muted focus:outline-none focus:border-gold/40 transition-colors"
+                />
+              </label>
+              <label className="relative">
+                <span className="sr-only">{t('marketplace.filters.minQueries')}</span>
+                <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder={t('marketplace.filters.minQueries')}
+                  value={minQueries}
+                  onChange={e => setMinQueries(e.target.value)}
+                  className="w-full bg-void/60 border border-border/60 rounded-xl pl-9 pr-3 py-3 text-sm font-body text-foreground placeholder:text-muted focus:outline-none focus:border-gold/40 transition-colors"
+                />
+              </label>
             </div>
 
             {/* Sort */}
@@ -136,10 +217,10 @@ export default function MarketplacePage() {
               <SlidersHorizontal className="w-4 h-4 text-muted flex-shrink-0" />
               <select
                 value={sort}
-                onChange={(e) => setSort(e.target.value)}
+                onChange={e => setSort(e.target.value)}
                 className="bg-void/60 border border-border/60 rounded-xl px-4 py-3 text-sm font-body text-foreground focus:outline-none focus:border-gold/40 transition-colors"
               >
-                {sortOptions.map((o) => (
+                {sortOptions.map(o => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -149,28 +230,52 @@ export default function MarketplacePage() {
           </div>
 
           {/* Type filter pills */}
-          <div className="flex flex-wrap gap-2 mt-4">
-            {typeFilters.map(({ value, label }) => {
-              const meta = value ? DATA_TYPE_META[value] : null;
-              return (
-                <button
-                  key={value}
-                  onClick={() => setTypeFilter(value)}
-                  aria-label={t("marketplace.filterBy", { type: label })}
-                  aria-pressed={typeFilter === value}
-                  className={clsx(
-                    "px-3 py-1.5 rounded-lg text-xs font-body font-medium transition-all duration-200",
-                    typeFilter === value
-                      ? "bg-gold text-void"
-                      : meta
-                        ? `${meta.bg} ${meta.color} hover:opacity-80`
-                        : "bg-surface-2 text-foreground-muted hover:text-foreground",
-                  )}
-                >
-                  {label}
-                </button>
-              );
-            })}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mt-4">
+            <div className="flex flex-wrap gap-2">
+              {typeFilters.map(({ value, label }) => {
+                const meta = DATA_TYPE_META[value];
+                const isSelected = selectedTypes.includes(value);
+                return (
+                  <button
+                    key={value}
+                    onClick={() => toggleTypeFilter(value)}
+                    aria-label={t('marketplace.filterBy', { type: label })}
+                    aria-pressed={isSelected}
+                    className={clsx(
+                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-body font-medium transition-all duration-200',
+                      isSelected
+                        ? 'bg-gold text-void'
+                        : `${meta.bg} ${meta.color} hover:opacity-80`,
+                    )}
+                  >
+                    {isSelected && <Check className="w-3 h-3" aria-hidden="true" />}
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-3">
+              {selectedTypes.length > 0 && (
+                <span className="text-xs font-body text-foreground-muted">
+                  {t('marketplace.filters.selectedTypes', {
+                    count: selectedTypes.length.toLocaleString(locale),
+                  })}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={!hasActiveFilters}
+                className={clsx(
+                  'btn-ghost px-3 py-1.5 text-xs inline-flex items-center gap-2',
+                  !hasActiveFilters && 'opacity-50 cursor-not-allowed',
+                )}
+              >
+                <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                {t('marketplace.filters.reset')}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -178,10 +283,10 @@ export default function MarketplacePage() {
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-foreground-muted font-body">
             {loading ? (
-              t("common.labels.loading")
+              t('common.labels.loading')
             ) : (
               <>
-                {t("marketplace.pagination.showing", {
+                {t('marketplace.pagination.showing', {
                   start: pageStart.toLocaleString(locale),
                   end: pageEnd.toLocaleString(locale),
                   total: total.toLocaleString(locale),
@@ -191,7 +296,7 @@ export default function MarketplacePage() {
           </p>
           {!loading && datasets.length > 0 && (
             <p className="text-sm text-foreground-muted font-body">
-              {t("marketplace.pagination.page", {
+              {t('marketplace.pagination.page', {
                 current: currentPage.toLocaleString(locale),
                 total: totalPages.toLocaleString(locale),
               })}
@@ -212,21 +317,17 @@ export default function MarketplacePage() {
               <Search className="w-8 h-8 text-muted" />
             </div>
             <h3 className="font-display text-xl text-foreground mb-2">
-              {t("marketplace.noResultsTitle")}
+              {t('marketplace.noResultsTitle')}
             </h3>
             <p className="text-foreground-muted font-body text-sm">
-              {t("marketplace.noResultsBody")}
+              {t('marketplace.noResultsBody')}
             </p>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {datasets.map((ds: DatasetMeta) => (
-                <DatasetCard
-                  key={ds.id}
-                  dataset={ds}
-                  onBuy={setSelectedDataset}
-                />
+                <DatasetCard key={ds.id} dataset={ds} onBuy={setSelectedDataset} />
               ))}
             </div>
 
@@ -234,31 +335,31 @@ export default function MarketplacePage() {
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <button
                   type="button"
-                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  aria-label={t("marketplace.pagination.previous")}
+                  aria-label={t('marketplace.pagination.previous')}
                   className={clsx(
-                    "btn-ghost px-4 py-2 text-sm flex items-center gap-2",
-                    currentPage === 1 && "opacity-50 cursor-not-allowed",
+                    'btn-ghost px-4 py-2 text-sm flex items-center gap-2',
+                    currentPage === 1 && 'opacity-50 cursor-not-allowed',
                   )}
                 >
                   <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-                  {t("marketplace.pagination.previous")}
+                  {t('marketplace.pagination.previous')}
                 </button>
 
                 <div className="flex items-center gap-2">
-                  {visiblePages.map((pageNumber) => (
+                  {visiblePages.map(pageNumber => (
                     <button
                       key={pageNumber}
                       type="button"
                       onClick={() => setPage(pageNumber)}
-                      aria-label={t("marketplace.pagination.goToPage", { page: pageNumber })}
+                      aria-label={t('marketplace.pagination.goToPage', { page: pageNumber })}
                       aria-current={currentPage === pageNumber ? 'page' : undefined}
                       className={clsx(
-                        "w-10 h-10 rounded-xl text-sm font-body font-medium transition-all duration-200",
+                        'w-10 h-10 rounded-xl text-sm font-body font-medium transition-all duration-200',
                         currentPage === pageNumber
-                          ? "bg-gold text-void"
-                          : "bg-surface-2 text-foreground-muted hover:text-foreground hover:bg-surface",
+                          ? 'bg-gold text-void'
+                          : 'bg-surface-2 text-foreground-muted hover:text-foreground hover:bg-surface',
                       )}
                     >
                       {pageNumber.toLocaleString(locale)}
@@ -268,15 +369,15 @@ export default function MarketplacePage() {
 
                 <button
                   type="button"
-                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
-                  aria-label={t("marketplace.pagination.next")}
+                  aria-label={t('marketplace.pagination.next')}
                   className={clsx(
-                    "btn-ghost px-4 py-2 text-sm flex items-center gap-2",
-                    currentPage === totalPages && "opacity-50 cursor-not-allowed",
+                    'btn-ghost px-4 py-2 text-sm flex items-center gap-2',
+                    currentPage === totalPages && 'opacity-50 cursor-not-allowed',
                   )}
                 >
-                  {t("marketplace.pagination.next")}
+                  {t('marketplace.pagination.next')}
                   <ChevronRight className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>

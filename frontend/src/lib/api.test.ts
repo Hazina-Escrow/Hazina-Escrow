@@ -119,4 +119,38 @@ describe('api request throttling', () => {
       totalTransactions: 4,
     });
   });
+
+  it('serializes advanced dataset filters', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        createFetchResponse({
+          success: true,
+          data: [],
+          total: 0,
+          page: 1,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.getDatasets({
+      page: 2,
+      limit: 12,
+      search: 'yield',
+      types: ['yield-data', 'risk-scores'],
+      minPrice: 0.5,
+      maxPrice: 5,
+      minQueries: 1000,
+      sort: 'price-asc',
+    });
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]), 'http://localhost');
+    expect(url.searchParams.getAll('type')).toEqual(['yield-data', 'risk-scores']);
+    expect(url.searchParams.get('minPrice')).toBe('0.5');
+    expect(url.searchParams.get('maxPrice')).toBe('5');
+    expect(url.searchParams.get('minQueries')).toBe('1000');
+    expect(url.searchParams.get('sort')).toBe('price-asc');
+  });
 });
