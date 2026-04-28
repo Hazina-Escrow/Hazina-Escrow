@@ -49,7 +49,7 @@
     "@typescript-eslint/parser": "^7.18.0",
     "@vitest/coverage-v8": "^1.2.0",
     "drizzle-kit": "^0.20.17",
-    "eslint": "^8.57.0",
+    "eslint": "^10.2.1",
     "eslint-config-prettier": "^9.1.0",
     "supertest": "^6.3.3",
     "ts-node": "^10.9.2",
