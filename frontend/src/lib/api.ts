@@ -265,11 +265,24 @@ function validateDataset(raw: unknown, index?: number): DatasetMeta {
 async function request<T>(url: string, options?: RequestOptions): Promise<T> {
   return scheduleRequest(getRequestKey(url, options), async () => {
     const res = await fetchWithTimeout(url, options);
+
+    // Parse JSON body once. If parsing fails, we fallback to null.
+    const data = await res.json().catch(() => null);
+
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: 'Network error' }));
-      throw new Error(err.error || `HTTP ${res.status}`);
+      throw new Error(data?.error || `HTTP ${res.status}`);
     }
-    return res.json();
+
+    if (data === null) {
+      throw new Error('Invalid response from server');
+    }
+
+    // Handle business-level failures returned with 2xx status codes
+    if (data && typeof data === 'object' && data.success === false) {
+      throw new Error(data.error || 'API request failed');
+    }
+
+    return data as T;
   });
 }
 
