@@ -13,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { api, DatasetMeta, QueryResult } from '../../lib/api';
+import { isDemoModeEnabled } from '../../lib/env';
 import { formatUSDC, getTypeMeta, truncateAddress } from '../../lib/utils';
 import { launchStellarWalletProvider } from '../../lib/stellarWallets';
 import type { StellarWalletProvider } from '../../lib/stellarWallets';
@@ -51,6 +52,7 @@ export default function QueryModal({ dataset, onClose, onSuccess }: Props) {
   const typeMeta = getTypeMeta(dataset.type);
   const typeLabel = typeMeta.labelKey ? t(typeMeta.labelKey) : typeMeta.label;
   const verifyingStages = catalog.queryModal.verifyingStages;
+  const enableDemoMode = isDemoModeEnabled();
 
   // Fetch 402 payment details
   useEffect(() => {
@@ -84,7 +86,7 @@ export default function QueryModal({ dataset, onClose, onSuccess }: Props) {
     }, 1800);
     try {
       let res: QueryResult;
-      if (useDemoMode) {
+      if (enableDemoMode && useDemoMode) {
         res = await api.demoQuery(dataset.id, buyerQuestion);
       } else {
         res = await api.verifyPayment(dataset.id, txHash.trim(), buyerQuestion);
@@ -418,22 +420,23 @@ export default function QueryModal({ dataset, onClose, onSuccess }: Props) {
               </div>
 
               {/* Demo mode toggle */}
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-2/60 border border-border/40 mb-4">
-                <input
-                  type="checkbox"
-                  id="demo-mode"
-                  checked={useDemoMode}
-                  onChange={e => setUseDemoMode(e.target.checked)}
-                  className="w-4 h-4 accent-amber-400"
-                />
-                <label htmlFor="demo-mode" className="text-xs text-foreground-muted font-body">
-                  <span className="text-amber-400 font-medium">
-                    {t('queryModal.payment.demoModeLabel')}
-                  </span>{' '}
-                  — {t('queryModal.payment.demoModeDescription')}
-                </label>
-              </div>
-
+              {enableDemoMode && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-2/60 border border-border/40 mb-4">
+                  <input
+                    type="checkbox"
+                    id="demo-mode"
+                    checked={useDemoMode}
+                    onChange={e => setUseDemoMode(e.target.checked)}
+                    className="w-4 h-4 accent-amber-400"
+                  />
+                  <label htmlFor="demo-mode" className="text-xs text-foreground-muted font-body">
+                    <span className="text-amber-400 font-medium">
+                      {t('queryModal.payment.demoModeLabel')}
+                    </span>{' '}
+                    — {t('queryModal.payment.demoModeDescription')}
+                  </label>
+                </div>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={() => setStep('details')}

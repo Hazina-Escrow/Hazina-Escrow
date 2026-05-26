@@ -7,9 +7,16 @@
 
 interface EnvConfig {
   apiUrl: string;
+  enableDemoMode: boolean;
 }
 
 const REQUIRED_ENV_VARS = ["VITE_API_URL"] as const;
+
+function readEnableDemoMode() {
+  return String(import.meta.env.VITE_ENABLE_DEMO_MODE ?? "")
+    .trim()
+    .toLowerCase() === "true";
+}
 
 /**
  * Validate required environment variables and return a typed config object.
@@ -35,6 +42,7 @@ export function validateEnv(): EnvConfig {
 
   return {
     apiUrl: String(import.meta.env.VITE_API_URL).trim().replace(/\/+$/, ""),
+    enableDemoMode: readEnableDemoMode(),
   };
 }
 
@@ -57,4 +65,8 @@ export function getEnv(): EnvConfig {
 export function initEnv(): EnvConfig {
   _env = validateEnv();
   return _env;
+}
+
+export function isDemoModeEnabled() {
+  return readEnableDemoMode();
 }
