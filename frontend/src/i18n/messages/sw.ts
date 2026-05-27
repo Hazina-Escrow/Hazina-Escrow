@@ -301,6 +301,7 @@ export const sw: EnglishMessages = {
     title: 'Dashibodi',
     subtitle: 'Mapato yako ya wakati halisi na utendaji wa dataset zako.',
     loadError: 'Imeshindikana kupakia dashibodi',
+    refreshing: 'Inasasisha',
     allSellers: 'Wauzaji wote',
     stats: {
       totalEarned: 'Jumla ya USDC iliyopatikana',

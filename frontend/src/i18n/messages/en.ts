@@ -303,6 +303,7 @@ export const en = {
     title: 'Dashboard',
     subtitle: 'Your real-time earnings and dataset performance.',
     loadError: 'Could not load dashboard',
+    refreshing: 'Refreshing',
     allSellers: 'All Sellers',
     stats: {
       totalEarned: 'Total USDC Earned',

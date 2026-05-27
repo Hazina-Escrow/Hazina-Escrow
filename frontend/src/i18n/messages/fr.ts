@@ -303,6 +303,7 @@ export const fr: EnglishMessages = {
     title: 'Tableau de bord',
     subtitle: 'Vos revenus en temps réel et la performance de vos datasets.',
     loadError: 'Impossible de charger le tableau de bord',
+    refreshing: 'Actualisation',
     allSellers: 'Tous les vendeurs',
     stats: {
       totalEarned: 'USDC totaux gagnés',
