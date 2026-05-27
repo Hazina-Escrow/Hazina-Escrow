@@ -1,3 +1,5 @@
+import { getEnv } from './env';
+
 export type StellarWalletProvider = 'freighter' | 'albedo';
 
 export interface StellarPaymentRequest {
@@ -26,20 +28,16 @@ const MAINNET_USDC_ISSUER = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K
 const TESTNET_PASSPHRASE = 'Test SDF Network ; September 2015';
 const PUBLIC_PASSPHRASE = 'Public Global Stellar Network ; September 2015';
 
-function configuredNetwork() {
-  return (import.meta.env.VITE_STELLAR_NETWORK ?? 'testnet').toString().trim().toLowerCase();
-}
-
 function configuredUsdcIssuer() {
-  const value = import.meta.env.VITE_USDC_ISSUER?.toString().trim();
-  if (value) return value;
-  return configuredNetwork() === 'mainnet' || configuredNetwork() === 'public'
+  const { usdcIssuer, stellarNetwork } = getEnv();
+  if (usdcIssuer) return usdcIssuer;
+  return stellarNetwork === 'public'
     ? MAINNET_USDC_ISSUER
     : TESTNET_USDC_ISSUER;
 }
 
 function albedoNetwork() {
-  return configuredNetwork() === 'mainnet' || configuredNetwork() === 'public'
+  return getEnv().stellarNetwork === 'public'
     ? 'public'
     : 'testnet';
 }

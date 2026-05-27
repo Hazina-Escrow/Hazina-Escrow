@@ -1,21 +1,20 @@
+import { getEnv } from './env';
+
 const REQUEST_THROTTLE_MS = 250;
 
-// Issue #252 — cap concurrent in-flight HTTP requests so a flood of parallel
-// calls (e.g. dashboard mount firing many fetches at once) can't overwhelm the
-// backend rate limiter or saturate the network. Configurable via
-// VITE_MAX_CONCURRENT_REQUESTS, default 8.
-const MAX_CONCURRENT_REQUESTS = (() => {
-  const env = import.meta.env as unknown as Record<string, string | undefined>;
-  const raw = (env.VITE_MAX_CONCURRENT_REQUESTS ?? '').toString().trim();
-  const parsed = parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 8;
-})();
+function getMaxConcurrentRequests(): number {
+  try {
+    return getEnv().maxConcurrentRequests;
+  } catch {
+    return 8;
+  }
+}
 
 let inFlight = 0;
 const inFlightWaiters: Array<() => void> = [];
 
 async function acquireSlot(): Promise<void> {
-  if (inFlight < MAX_CONCURRENT_REQUESTS) {
+  if (inFlight < getMaxConcurrentRequests()) {
     inFlight += 1;
     return;
   }
@@ -75,13 +74,14 @@ async function scheduleRequest<T>(key: string, task: () => Promise<T>): Promise<
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 export const AGENT_REQUEST_TIMEOUT_MS = 120_000;
 
-const RAW_API_URL = (import.meta.env.VITE_API_URL ?? '').toString().trim();
-export const API_BASE_URL = import.meta.env.DEV
-  ? (RAW_API_URL ? `${RAW_API_URL.replace(/\/+$/, '')}/api` : 'http://localhost:3001/api')
-  : `${RAW_API_URL.replace(/\/+$/, '')}/api`;
+function getApiBaseUrl(): string {
+  const { apiUrl } = getEnv();
+  return `${apiUrl}/api`;
+}
 
-const BASE = API_BASE_URL;
-const API_KEY = (import.meta.env.VITE_API_KEY ?? '').toString().trim();
+function getApiKey(): string {
+  return getEnv().apiKey;
+}
 
 // ── Public interfaces ──────────────────────────────────────────────────────
 
@@ -208,7 +208,8 @@ interface RequestOptions extends RequestInit {
 
 function authHeaders(extra?: HeadersInit): HeadersInit {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (API_KEY) headers['Authorization'] = `Bearer ${API_KEY}`;
+  const apiKey = getApiKey();
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
   return { ...headers, ...(extra as Record<string, string>) };
 }
 
@@ -360,7 +361,7 @@ export const api = {
       if (params.sort) searchParams.append('sort', params.sort);
     }
     const query = searchParams.toString();
-    const url = `${BASE}/datasets${query ? `?${query}` : ''}`;
+    const url = `${getApiBaseUrl()}/datasets${query ? `?${query}` : ''}`;
     return request<PaginatedDatasets>(url).then(r => {
       assertArray(r.data, 'datasets.data');
       r.data = r.data.map((item, i) => validateDataset(item, i));
@@ -369,19 +370,19 @@ export const api = {
   },
 
   getStats: () =>
-    request<{ success: boolean; stats: unknown }>(`${BASE}/datasets/stats`).then(r =>
+    request<{ success: boolean; stats: unknown }>(`${getApiBaseUrl()}/datasets/stats`).then(r =>
       validateStats(r.stats),
     ),
 
   getDataset: (id: string) =>
-    request<{ success: boolean; dataset: DatasetMeta }>(`${BASE}/datasets/${id}`).then(
+    request<{ success: boolean; dataset: DatasetMeta }>(`${getApiBaseUrl()}/datasets/${id}`).then(
       r => r.dataset,
     ),
 
   getTransactions: (datasetId?: string) => {
     const url = datasetId
-      ? `${BASE}/datasets/${datasetId}/transactions`
-      : `${BASE}/datasets/transactions`;
+      ? `${getApiBaseUrl()}/datasets/${datasetId}/transactions`
+      : `${getApiBaseUrl()}/datasets/transactions`;
     return request<{ success: boolean; transactions: Transaction[] }>(url).then(
       r => r.transactions,
     );
@@ -389,33 +390,33 @@ export const api = {
 
   initiateQuery: (id: string) =>
     request<{ payment: { paymentAddress: string; amount: number; memo: string } }>(
-      `${BASE}/query/${id}`,
+      `${getApiBaseUrl()}/query/${id}`,
       { method: 'POST' },
     ),
 
   verifyPayment: (id: string, txHash: string, buyerQuestion?: string) =>
-    request<QueryResult>(`${BASE}/verify/${id}`, {
+    request<QueryResult>(`${getApiBaseUrl()}/verify/${id}`, {
       method: 'POST',
       body: JSON.stringify({ txHash, buyerQuestion }),
     }),
 
   demoQuery: (id: string, buyerQuestion?: string) =>
-    request<QueryResult>(`${BASE}/verify/${id}/demo`, {
+    request<QueryResult>(`${getApiBaseUrl()}/verify/${id}/demo`, {
       method: 'POST',
       body: JSON.stringify({ buyerQuestion }),
     }),
 
-  agentInfo: () => request<AgentInfo>(`${BASE}/agent/info`),
+  agentInfo: () => request<AgentInfo>(`${getApiBaseUrl()}/agent/info`),
 
   agentDemo: (query: string) =>
-    request<AgentJob>(`${BASE}/agent/research/demo`, {
+    request<AgentJob>(`${getApiBaseUrl()}/agent/research/demo`, {
       method: 'POST',
       body: JSON.stringify({ query }),
       timeoutMs: AGENT_REQUEST_TIMEOUT_MS,
     }),
 
   agentResearch: (query: string, txHash: string) =>
-    request<AgentJob>(`${BASE}/agent/research`, {
+    request<AgentJob>(`${getApiBaseUrl()}/agent/research`, {
       method: 'POST',
       body: JSON.stringify({ query, txHash }),
       timeoutMs: AGENT_REQUEST_TIMEOUT_MS,
@@ -429,7 +430,7 @@ export const api = {
     sellerWallet: string;
     data: unknown;
   }) =>
-    request<{ success: boolean; dataset: DatasetMeta }>(`${BASE}/datasets`, {
+    request<{ success: boolean; dataset: DatasetMeta }>(`${getApiBaseUrl()}/datasets`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify(payload),

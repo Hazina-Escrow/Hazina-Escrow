@@ -1,5 +1,5 @@
 /* eslint-disable prefer-node-protocol,sonarjs/cognitive-complexity */
-import { readFileSync } from 'node:fs';
+import { promises as fs } from 'node:fs';
 import { resolve } from 'node:path';
 import db from './client';
 import { datasets, transactions } from './schema';
@@ -94,7 +94,7 @@ async function seedTransactions(jsonData: any): Promise<void> {
 async function seed(): Promise<void> {
   try {
     const dataPath = resolve(__dirname, '../../data/datasets.json');
-    const fileContent = readFileSync(dataPath, 'utf-8');
+    const fileContent = await fs.readFile(dataPath, 'utf-8');
     const jsonData = JSON.parse(fileContent);
 
     console.log('Seeding database...');

@@ -20,6 +20,7 @@ export interface Transaction {
   id: string;
   datasetId: string;
   txHash: string;
+  memo?: string;
   amount: number;
   status?: 'pending' | 'verifying' | 'verified' | 'completed' | 'failed' | 'refunded';
   deliveryStatus?: 'pending' | 'delivered' | 'failed';
@@ -131,17 +132,21 @@ export async function addDataset(dataset: Dataset): Promise<void> {
 }
 
 export async function addTransaction(tx: Transaction): Promise<void> {
-  pendingTxHashes.add(tx.txHash);
+  if (tx.txHash) pendingTxHashes.add(tx.txHash);
   return enqueue(async (store) => {
     store.transactions.push(tx);
     return [store, undefined];
   }).finally(() => {
-    pendingTxHashes.delete(tx.txHash);
+    if (tx.txHash) pendingTxHashes.delete(tx.txHash);
   });
 }
 
 export async function getTransactionByHash(txHash: string): Promise<Transaction | undefined> {
   return (await readStore()).transactions.find((tx) => tx.txHash === txHash);
+}
+
+export async function getTransactionByMemo(memo: string): Promise<Transaction | undefined> {
+  return (await readStore()).transactions.find((tx) => tx.memo === memo);
 }
 
 export async function updateTransactionByHash(
@@ -150,6 +155,18 @@ export async function updateTransactionByHash(
 ): Promise<Transaction | null> {
   return enqueue(async (store) => {
     const idx = store.transactions.findIndex((tx) => tx.txHash === txHash);
+    if (idx === -1) return [store, null];
+    store.transactions[idx] = { ...store.transactions[idx], ...updates };
+    return [store, store.transactions[idx]];
+  });
+}
+
+export async function updateTransactionByMemo(
+  memo: string,
+  updates: Partial<Transaction>,
+): Promise<Transaction | null> {
+  return enqueue(async (store) => {
+    const idx = store.transactions.findIndex((tx) => tx.memo === memo);
     if (idx === -1) return [store, null];
     store.transactions[idx] = { ...store.transactions[idx], ...updates };
     return [store, store.transactions[idx]];
@@ -182,6 +199,7 @@ export async function getFailedDeliveryTransactions(): Promise<Transaction[]> {
 }
 
 export async function txHashUsed(txHash: string): Promise<boolean> {
+  if (!txHash) return false;
   if (pendingTxHashes.has(txHash)) return true;
   return (await readStore()).transactions.some((t) => t.txHash === txHash);
 }

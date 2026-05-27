@@ -1,14 +1,29 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import request from "supertest";
 import express, { Express } from "express";
+import crypto from "crypto";
 
+// Mock services
 vi.mock("./webhook.service", () => ({
   notifySeller: vi.fn(() => Promise.resolve()),
   dispatchWebhook: vi.fn(() => Promise.resolve()),
+  signPayload: vi.fn((body: string, secret: string) => 
+    crypto.createHmac('sha256', secret).update(body).digest('hex')
+  ),
+}));
+
+vi.mock("../payments/payments.service", () => ({
+  processPayment: vi.fn(() => Promise.resolve({
+    success: true,
+    transaction: { deliveryStatus: 'delivered' }
+  })),
+  deliverVerifiedPayment: vi.fn(),
+  markDeliveryFailure: vi.fn(),
 }));
 
 import { webhooksRouter } from "./webhook.router";
-import { readStore, writeStore, Store } from "../common/storage";
+import { addTransaction, writeStore, Store } from "../common/storage";
+import { signPayload } from "./webhook.service";
 import fs from "fs";
 import path from "path";
 
@@ -30,6 +45,8 @@ describe("Webhook Router", () => {
     app = express();
     app.use(express.json());
     app.use("/api/webhooks", webhooksRouter);
+    
+    process.env.PAYMENT_WEBHOOK_SECRET = "test-secret";
   });
 
   afterEach(() => {
@@ -38,6 +55,70 @@ describe("Webhook Router", () => {
       fs.copyFileSync(BACKUP_PATH, DATA_PATH);
       fs.unlinkSync(BACKUP_PATH);
     }
+  });
+
+  describe("POST /api/webhooks/payment", () => {
+    const validPayload = {
+      txHash: "0x123",
+      memo: "haz-dataset1-12345"
+    };
+
+    it("processes valid signed webhook", async () => {
+      // Setup pending transaction
+      await addTransaction({
+        id: "tx-1",
+        datasetId: "dataset1",
+        txHash: "",
+        memo: "haz-dataset1-12345",
+        amount: 10,
+        status: "pending",
+        timestamp: new Date().toISOString()
+      });
+
+      const bodyString = JSON.stringify(validPayload);
+      const signature = signPayload(bodyString, "test-secret");
+
+      const res = await request(app)
+        .post("/api/webhooks/payment")
+        .set("X-Webhook-Signature", signature)
+        .send(validPayload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe("Payment processed");
+    });
+
+    it("rejects invalid signature", async () => {
+      const res = await request(app)
+        .post("/api/webhooks/payment")
+        .set("X-Webhook-Signature", "wrong-sig")
+        .send(validPayload);
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe("Invalid signature");
+    });
+
+    it("rejects missing signature", async () => {
+      const res = await request(app)
+        .post("/api/webhooks/payment")
+        .send(validPayload);
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe("Missing signature");
+    });
+
+    it("returns 404 if transaction not found by memo", async () => {
+      const payload = { txHash: "0x456", memo: "unknown-memo" };
+      const signature = signPayload(JSON.stringify(payload), "test-secret");
+
+      const res = await request(app)
+        .post("/api/webhooks/payment")
+        .set("X-Webhook-Signature", signature)
+        .send(payload);
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toContain("not found");
+    });
   });
 
   describe("POST /api/webhooks", () => {

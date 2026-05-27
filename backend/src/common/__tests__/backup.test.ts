@@ -31,7 +31,8 @@ describe('BackupService', () => {
     }
   });
 
-  it('should create backup directory if it does not exist', () => {
+  it('should create backup directory if it does not exist', async () => {
+    await backupService.listBackups();
     expect(fs.existsSync(TEST_BACKUP_DIR)).toBe(true);
   });
 
@@ -52,7 +53,7 @@ describe('BackupService', () => {
     await backupService.createBackup();
     await backupService.createBackup();
 
-    const backups = backupService.listBackups();
+    const backups = await backupService.listBackups();
     expect(backups.length).toBe(2);
     expect(backups[0].filename).toBeDefined();
     expect(backups[0].timestamp).toBeDefined();
@@ -66,7 +67,7 @@ describe('BackupService', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
     }
 
-    const backups = backupService.listBackups();
+    const backups = await backupService.listBackups();
     expect(backups.length).toBe(5);
   });
 
@@ -75,7 +76,7 @@ describe('BackupService', () => {
     await new Promise(resolve => setTimeout(resolve, 5));
     await backupService.createBackup();
 
-    const stats = backupService.getBackupStats();
+    const stats = await backupService.getBackupStats();
     expect(stats.totalBackups).toBe(2);
     expect(stats.totalSize).toBeGreaterThan(0);
     expect(stats.oldestBackup).toBeDefined();
@@ -99,7 +100,7 @@ describe('BackupService', () => {
 
     await backupService.restoreBackup(metadata.filename);
 
-    const backupsAfterRestore = backupService.listBackups();
+    const backupsAfterRestore = await backupService.listBackups();
 
     // Safety backup should exist (may have been rotated if maxBackups exceeded)
     const safetyBackup = backupsAfterRestore.find(b => b.filename.startsWith('pre-restore-'));
@@ -178,9 +179,9 @@ describe('BackupScheduler', () => {
     scheduler.start();
 
     // Wait a bit for the initial backup
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 200));
 
-    const backups = scheduler.getBackupService().listBackups();
+    const backups = await scheduler.getBackupService().listBackups();
     expect(backups.length).toBeGreaterThan(0);
 
     scheduler.stop();

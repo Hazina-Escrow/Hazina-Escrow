@@ -35,13 +35,13 @@ export const backupRouter = Router();
  *       200:
  *         description: List of backups
  */
-backupRouter.get('/backups', requireAdminKey, (_req: Request, res: Response) => {
+backupRouter.get('/backups', requireAdminKey, async (_req: Request, res: Response) => {
   if (!backupScheduler) {
     return res.status(503).json({ error: 'Backup service not initialized' });
   }
 
   try {
-    const backups = backupScheduler.getBackupService().listBackups();
+    const backups = await backupScheduler.getBackupService().listBackups();
     res.json({ backups });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -59,13 +59,13 @@ backupRouter.get('/backups', requireAdminKey, (_req: Request, res: Response) => 
  *       200:
  *         description: Backup statistics
  */
-backupRouter.get('/backups/stats', requireAdminKey, (_req: Request, res: Response) => {
+backupRouter.get('/backups/stats', requireAdminKey, async (_req: Request, res: Response) => {
   if (!backupScheduler) {
     return res.status(503).json({ error: 'Backup service not initialized' });
   }
 
   try {
-    const stats = backupScheduler.getBackupService().getBackupStats();
+    const stats = await backupScheduler.getBackupService().getBackupStats();
     res.json(stats);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

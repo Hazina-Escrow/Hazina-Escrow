@@ -1,15 +1,24 @@
 /**
- * Environment variable validation.
+ * Environment variable validation and central access.
  *
- * Call validateEnv() once at app startup (main.tsx) so missing or
+ * Call initEnv() once at the very top of app startup (main.tsx) so missing or
  * invalid env vars fail loudly instead of causing cryptic runtime errors.
  */
 
-interface EnvConfig {
+export interface EnvConfig {
+  /** Base URL of the backend API (e.g. http://localhost:3001) */
   apiUrl: string;
+  /** API key required for administrative actions like creating datasets */
+  apiKey: string;
+  /** Stellar network to use: 'testnet' or 'public' (mainnet) */
+  stellarNetwork: 'testnet' | 'public';
+  /** Optional override for the USDC asset issuer address on Stellar */
+  usdcIssuer?: string;
+  /** Maximum number of concurrent API requests allowed */
+  maxConcurrentRequests: number;
 }
 
-const REQUIRED_ENV_VARS = ["VITE_API_URL"] as const;
+const REQUIRED_ENV_VARS = ["VITE_API_URL", "VITE_API_KEY"] as const;
 
 /**
  * Validate required environment variables and return a typed config object.
@@ -33,8 +42,18 @@ export function validateEnv(): EnvConfig {
     );
   }
 
+  const network = (import.meta.env.VITE_STELLAR_NETWORK || "testnet").trim().toLowerCase();
+  const stellarNetwork = (network === "mainnet" || network === "public") ? "public" : "testnet";
+
+  const maxRequestsRaw = parseInt(import.meta.env.VITE_MAX_CONCURRENT_REQUESTS || "8", 10);
+  const maxConcurrentRequests = Number.isFinite(maxRequestsRaw) && maxRequestsRaw > 0 ? maxRequestsRaw : 8;
+
   return {
     apiUrl: String(import.meta.env.VITE_API_URL).trim().replace(/\/+$/, ""),
+    apiKey: String(import.meta.env.VITE_API_KEY).trim(),
+    stellarNetwork: stellarNetwork as 'testnet' | 'public',
+    usdcIssuer: import.meta.env.VITE_USDC_ISSUER?.trim(),
+    maxConcurrentRequests,
   };
 }
 
