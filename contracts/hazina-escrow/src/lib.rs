@@ -53,7 +53,7 @@ pub enum HazinaEscrowError {
 }
 
 #[contracttype]
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct EscrowRecord {
     pub escrow_id: u64,
     pub dataset_id: String,
@@ -520,6 +520,13 @@ impl HazinaEscrow {
             .persistent()
             .get(&EscrowKey::Record(escrow_id))
             .expect("escrow not found")
+    }
+
+    pub fn get_escrow_count(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DataKey::EscrowCount)
+            .unwrap_or(0)
     }
 
     pub fn set_fee(env: Env, admin: Address, fee_bps: u32) {
@@ -1283,6 +1290,47 @@ mod tests {
         let record = client.get_escrow(&escrow_id);
         assert!(record.refunded);
         assert_eq!(token_client.balance(&buyer), INITIAL_BUYER_BALANCE);
+    }
+
+    #[test]
+    fn test_get_escrow_count_returns_correct_number() {
+        let (env, client, admin, buyer, seller, usdc) = setup();
+
+        // Initially zero escrows
+        assert_eq!(client.get_escrow_count(), 0);
+
+        // Create first escrow
+        let escrow_id1 = client.lock(
+            &buyer,
+            &seller,
+            &usdc,
+            &1_000_000,
+            &dataset_id(&env, "ds-count-1"),
+        );
+        assert_eq!(escrow_id1, 0);
+        assert_eq!(client.get_escrow_count(), 1);
+
+        // Create second escrow
+        let escrow_id2 = client.lock(
+            &buyer,
+            &seller,
+            &usdc,
+            &2_000_000,
+            &dataset_id(&env, "ds-count-2"),
+        );
+        assert_eq!(escrow_id2, 1);
+        assert_eq!(client.get_escrow_count(), 2);
+
+        // Create third escrow
+        let escrow_id3 = client.lock(
+            &buyer,
+            &seller,
+            &usdc,
+            &3_000_000,
+            &dataset_id(&env, "ds-count-3"),
+        );
+        assert_eq!(escrow_id3, 2);
+        assert_eq!(client.get_escrow_count(), 3);
     }
 }
 
