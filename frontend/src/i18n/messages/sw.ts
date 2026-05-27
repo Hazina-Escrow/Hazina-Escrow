@@ -39,6 +39,8 @@ export const sw: EnglishMessages = {
       resetSearch: 'Weka upya utafutaji',
       copyAddress: 'Nakili anwani',
       copyMemo: 'Nakili memo',
+      connectWallet: 'Unganisha wallet',
+      disconnect: 'Tenganisha',
     },
     labels: {
       price: 'Bei',
@@ -102,7 +104,11 @@ export const sw: EnglishMessages = {
     sell: 'Uza data',
     dashboard: 'Dashibodi',
     mobileMenu: 'Menyu',
+    openMobileMenu: 'Fungua menyu',
+    closeMobileMenu: 'Funga menyu',
     brand: 'Hazina',
+    connectWallet: 'Unganisha wallet',
+    disconnect: 'Tenganisha',
   },
   dataTypes: {
     all: 'Aina zote',
@@ -301,6 +307,7 @@ export const sw: EnglishMessages = {
     title: 'Dashibodi',
     subtitle: 'Mapato yako ya wakati halisi na utendaji wa dataset zako.',
     loadError: 'Imeshindikana kupakia dashibodi',
+    refreshing: 'Inasasisha',
     allSellers: 'Wauzaji wote',
     stats: {
       totalEarned: 'Jumla ya USDC iliyopatikana',

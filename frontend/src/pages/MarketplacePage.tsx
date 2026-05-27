@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import {
@@ -32,9 +33,16 @@ export default function MarketplacePage() {
   const [maxPrice, setMaxPrice] = useState('');
   const [minQueries, setMinQueries] = useState('');
   const [sort, setSort] = useState('popular');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pageSize = 20;
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const page = Number.isFinite(pageParam) && pageParam >= 1 ? pageParam : 1;
+  const setPage = (nextPage: number) => {
+    const updatedParams = new URLSearchParams(searchParams);
+    updatedParams.set('page', String(Math.max(1, Math.floor(nextPage))));
+    setSearchParams(updatedParams);
+  };
   const [selectedDataset, setSelectedDataset] = useState<DatasetMeta | null>(null);
-  const pageSize = 12;
 
   // Debounce: only update the query key 400 ms after the user stops typing.
   useEffect(() => {
@@ -66,8 +74,12 @@ export default function MarketplacePage() {
   const totalPages = data?.totalPages || 1;
 
   useEffect(() => {
-    setPage(1);
-  }, [search, sort, selectedTypes, minPrice, maxPrice, minQueries]);
+    if (page !== 1) {
+      const updatedParams = new URLSearchParams(searchParams);
+      updatedParams.set('page', '1');
+      setSearchParams(updatedParams);
+    }
+  }, [search, sort, selectedTypes, minPrice, maxPrice, minQueries, page, searchParams, setSearchParams]);
 
   const currentPage = Math.min(page, totalPages);
 
@@ -106,6 +118,7 @@ export default function MarketplacePage() {
     setMinPrice('');
     setMaxPrice('');
     setMinQueries('');
+    setPage(1);
   };
 
   const sortOptions = [

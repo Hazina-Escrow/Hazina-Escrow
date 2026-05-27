@@ -104,7 +104,11 @@ export const es: EnglishMessages = {
     sell: 'Vender datos',
     dashboard: 'Panel',
     mobileMenu: 'Menú',
+    openMobileMenu: 'Abrir menú',
+    closeMobileMenu: 'Cerrar menú',
     brand: 'Hazina',
+    connectWallet: 'Conectar wallet',
+    disconnect: 'Desconectar',
   },
   dataTypes: {
     all: 'Todos los tipos',
@@ -303,6 +307,7 @@ export const es: EnglishMessages = {
     title: 'Panel',
     subtitle: 'Tus ganancias en tiempo real y el rendimiento de tus datasets.',
     loadError: 'No se pudo cargar el panel',
+    refreshing: 'Actualizando',
     allSellers: 'Todos los vendedores',
     stats: {
       totalEarned: 'USDC totales ganados',

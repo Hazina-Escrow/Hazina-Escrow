@@ -71,8 +71,8 @@ async function scheduleRequest<T>(key: string, task: () => Promise<T>): Promise<
   });
 }
 
-export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
-export const AGENT_REQUEST_TIMEOUT_MS = 120_000;
+export const DEFAULT_REQUEST_TIMEOUT_MS = 15_000; // regular API calls should complete in 10-15 seconds
+export const AGENT_REQUEST_TIMEOUT_MS = 120_000; // AI/agent operations may take longer than standard requests
 
 function getApiBaseUrl(): string {
   const { apiUrl } = getEnv();

@@ -104,7 +104,11 @@ export const fr: EnglishMessages = {
     sell: 'Vendre des données',
     dashboard: 'Tableau de bord',
     mobileMenu: 'Menu',
+    openMobileMenu: 'Ouvrir le menu',
+    closeMobileMenu: 'Fermer le menu',
     brand: 'Hazina',
+    connectWallet: 'Connecter le wallet',
+    disconnect: 'Déconnecter',
   },
   dataTypes: {
     all: 'Tous les types',
@@ -303,6 +307,7 @@ export const fr: EnglishMessages = {
     title: 'Tableau de bord',
     subtitle: 'Vos revenus en temps réel et la performance de vos datasets.',
     loadError: 'Impossible de charger le tableau de bord',
+    refreshing: 'Actualisation',
     allSellers: 'Tous les vendeurs',
     stats: {
       totalEarned: 'USDC totaux gagnés',
