@@ -18,6 +18,8 @@ import {
   deliverVerifiedPayment,
   markDeliveryFailure,
   processPayment,
+  startSellerNotificationRetryWorker,
+  stopSellerNotificationRetryWorker,
 } from "./payments.service";
 
 export const paymentsRouter = Router();
@@ -240,7 +242,10 @@ export function stopDeliveryRetryWorker(): void {
 
   clearInterval(deliveryRetryWorker);
   deliveryRetryWorker = null;
+  stopSellerNotificationRetryWorker();
 }
+
+export { startSellerNotificationRetryWorker };
 
 // POST /api/verify/:id — verify payment on Stellar and release the dataset to the buyer
 paymentsRouter.post("/verify/:id", validateBody(verifySchema), async (req: Request, res: Response) => {

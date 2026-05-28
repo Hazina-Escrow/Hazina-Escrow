@@ -22,6 +22,7 @@ import {
   paymentsRouter,
   startDeliveryRetryWorker,
   stopDeliveryRetryWorker,
+  startSellerNotificationRetryWorker,
 } from './payments/payments.router';
 import { agentRouter } from './agent/agent.router';
 import { webhooksRouter } from './webhooks/webhook.router';
@@ -318,6 +319,7 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 });
 
 startDeliveryRetryWorker();
+startSellerNotificationRetryWorker();
 
 // Create HTTP server and attach Express app
 const server = http.createServer(app);

@@ -26,6 +26,9 @@ export interface Transaction {
   deliveryStatus?: 'pending' | 'delivered' | 'failed';
   sellerPaid?: boolean;
   sellerAmount?: number;
+  sellerNotifiedAt?: string;
+  sellerNotificationError?: string;
+  sellerNotificationAttempts?: number;
   buyerQuery?: string;
   aiSummary?: string;
   deliveryAttempts?: number;
@@ -248,4 +251,16 @@ export async function updateWebhook(id: string, updates: Partial<WebhookSubscrip
 export async function getUnpaidTransactions(): Promise<Transaction[]> {
   const store = await readStore();
   return store.transactions.filter((t) => t.sellerPaid === false);
+}
+
+// Returns completed transactions where the seller notification failed and has not
+// yet exhausted retries. Used by the seller notification retry worker.
+export async function getTransactionsWithFailedSellerNotification(): Promise<Transaction[]> {
+  const store = await readStore();
+  return store.transactions.filter(
+    (t) =>
+      t.status === 'completed' &&
+      t.sellerNotificationError !== undefined &&
+      t.sellerNotifiedAt === undefined,
+  );
 }
