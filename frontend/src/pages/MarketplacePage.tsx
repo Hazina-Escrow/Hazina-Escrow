@@ -26,16 +26,19 @@ import { WebSocketStatus } from '../components/ui/WebSocketStatus';
 
 export default function MarketplacePage() {
   const { locale, t } = useI18n();
-  /** Raw input value — updated on every keystroke. */
-  const [searchInput, setSearchInput] = useState('');
-  /** Debounced value used in the query — updated 400 ms after typing stops. */
-  const [search, setSearch] = useState('');
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [minQueries, setMinQueries] = useState('');
-  const [sort, setSort] = useState('popular');
   const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Initialize state from URL parameters
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
+  const [search, setSearch] = useState(searchParams.get('q') || '');
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(
+    searchParams.get('types')?.split(',').filter(Boolean) || []
+  );
+  const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
+  const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
+  const [minQueries, setMinQueries] = useState(searchParams.get('minQueries') || '');
+  const [sort, setSort] = useState(searchParams.get('sort') || 'popular');
+  
   const pageSize = 20;
   const pageParam = parseInt(searchParams.get('page') || '1', 10);
   const page = Number.isFinite(pageParam) && pageParam >= 1 ? pageParam : 1;
@@ -52,6 +55,53 @@ export default function MarketplacePage() {
     const timer = setTimeout(() => setSearch(searchInput), 400);
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  // Sync filter state to URL parameters
+  useEffect(() => {
+    const updatedParams = new URLSearchParams(searchParams);
+    
+    // Update search query
+    if (search) {
+      updatedParams.set('q', search);
+    } else {
+      updatedParams.delete('q');
+    }
+    
+    // Update type filters
+    if (selectedTypes.length > 0) {
+      updatedParams.set('types', selectedTypes.join(','));
+    } else {
+      updatedParams.delete('types');
+    }
+    
+    // Update price range
+    if (minPrice) {
+      updatedParams.set('minPrice', minPrice);
+    } else {
+      updatedParams.delete('minPrice');
+    }
+    if (maxPrice) {
+      updatedParams.set('maxPrice', maxPrice);
+    } else {
+      updatedParams.delete('maxPrice');
+    }
+    
+    // Update min queries
+    if (minQueries) {
+      updatedParams.set('minQueries', minQueries);
+    } else {
+      updatedParams.delete('minQueries');
+    }
+    
+    // Update sort
+    updatedParams.set('sort', sort);
+    
+    // Only update if params changed to avoid infinite loop
+    const paramString = updatedParams.toString();
+    if (paramString !== searchParams.toString()) {
+      setSearchParams(updatedParams);
+    }
+  }, [search, selectedTypes, minPrice, maxPrice, minQueries, sort, searchParams, setSearchParams]);
 
   const {
     data,
@@ -80,7 +130,7 @@ export default function MarketplacePage() {
   // WebSocket connection for real-time updates
   const { connected: wsConnected, error: wsError } = useTransactionWebSocket(
     {
-      datasetIds: datasets.map(d => d.id),
+      datasetIds: datasets.map((d: DatasetMeta) => d.id),
       enabled: datasets.length > 0,
     },
     {
@@ -124,8 +174,8 @@ export default function MarketplacePage() {
     selectedTypes.length > 0 || Boolean(minPrice || maxPrice || minQueries || searchInput);
 
   const toggleTypeFilter = (type: string) => {
-    setSelectedTypes(current =>
-      current.includes(type) ? current.filter(value => value !== type) : [...current, type],
+    setSelectedTypes((current: string[]) =>
+      current.includes(type) ? current.filter((value: string) => value !== type) : [...current, type],
     );
   };
 
@@ -136,6 +186,7 @@ export default function MarketplacePage() {
     setMinPrice('');
     setMaxPrice('');
     setMinQueries('');
+    setSort('popular');
     setPage(1);
   };
 
@@ -188,7 +239,7 @@ export default function MarketplacePage() {
                 type="text"
                 placeholder={t('marketplace.searchPlaceholder')}
                 value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="w-full bg-void/60 border border-border/60 rounded-xl pl-11 pr-4 py-3 text-sm font-body text-foreground placeholder:text-muted focus:outline-none focus:border-gold/40 transition-colors"
               />
               {searchInput && (
@@ -281,7 +332,7 @@ export default function MarketplacePage() {
                       'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-body font-medium transition-all duration-200',
                       isSelected
                         ? 'bg-gold text-void'
-                        : `${meta?.bg} ${meta?.color} hover:opacity-80`,
+                        : `${meta?.bg || ''} ${meta?.color || ''} hover:opacity-80`,
                     )}
                   >
                     {isSelected && <Check className="w-3 h-3" aria-hidden="true" />}
