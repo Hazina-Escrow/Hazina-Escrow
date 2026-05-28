@@ -81,11 +81,11 @@ const demoLimiter = rateLimit({
   message: { error: 'Too many requests' },
 });
 
-// Demo limiters first (more specific), then strict, then global on /api
-app.use('/api/verify/:id/demo', demoLimiter);
-app.use('/api/agent/research/demo', demoLimiter);
-app.use('/api/verify', strictLimiter);
-app.use('/api/agent/research', strictLimiter);
+// Demo limiters first (more specific), then strict, then global on /api/v1
+app.use('/api/v1/verify/:id/demo', demoLimiter);
+app.use('/api/v1/agent/research/demo', demoLimiter);
+app.use('/api/v1/verify', strictLimiter);
+app.use('/api/v1/agent/research', strictLimiter);
 app.use(globalLimiter);
 
 // Initialize backup scheduler
@@ -203,12 +203,28 @@ process.on('uncaughtException', (err: Error) => {
   Sentry.captureException(err);
 });
 
-// Routes
-app.use('/api/datasets', datasetsRouter);
-app.use('/api', paymentsRouter);
-app.use('/api/agent', agentRouter);
-app.use('/api/webhooks', webhooksRouter);
-app.use('/api', backupRouter);
+// Routes under versioned API namespace.
+const v1Router = express.Router();
+
+v1Router.use('/datasets', datasetsRouter);
+v1Router.use('/agent', agentRouter);
+v1Router.use('/webhooks', webhooksRouter);
+v1Router.use('/payments', paymentsRouter);
+v1Router.use('/backups', backupRouter);
+
+app.use('/api/v1', v1Router);
+
+// Legacy /api routes redirect to /api/v1 for a transition period.
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+  if (req.originalUrl.startsWith('/api/v1')) {
+    return next();
+  }
+
+  const targetUrl = `/api/v1${req.originalUrl.slice('/api'.length)}`;
+  res.setHeader('Warning', '299 - "Deprecated API version. Use /api/v1/."');
+  res.setHeader('Deprecation', 'true');
+  res.redirect(308, targetUrl);
+});
 
 // Global error handling middleware — Issue #283 (standard error shape)
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
@@ -229,7 +245,7 @@ const wsApiKey = process.env.WEBSOCKET_API_KEY || '';
 const wsServer = initializeWebSocketServer(server, wsApiKey);
 
 // Add endpoint for WebSocket server stats
-app.get('/api/ws/stats', (_req: Request, res: Response) => {
+app.get('/api/v1/ws/stats', (_req: Request, res: Response) => {
   res.json(wsServer.getStats());
 });
 

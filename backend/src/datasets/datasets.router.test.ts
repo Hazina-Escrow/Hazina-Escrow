@@ -61,7 +61,7 @@ const transactions: Transaction[] = [
 function makeApp(): Express {
   const app = express();
   app.use(express.json());
-  app.use('/api/datasets', datasetsRouter);
+  app.use('/api/v1/datasets', datasetsRouter);
   return app;
 }
 
@@ -113,14 +113,14 @@ describe('datasets seller dashboard auth', () => {
   it('rejects seller dashboard requests when the JWT secret is missing', async () => {
     delete process.env.SELLER_JWT_SECRET;
 
-    const res = await request(app).get('/api/datasets/seller/dashboard');
+    const res = await request(app).get('/api/v1/datasets/seller/dashboard');
 
     expect(res.status).toBe(503);
     expect(res.body.error).toContain('SELLER_JWT_SECRET');
   });
 
   it('requires a bearer token for seller dashboard data', async () => {
-    const res = await request(app).get('/api/datasets/seller/dashboard');
+    const res = await request(app).get('/api/v1/datasets/seller/dashboard');
 
     expect(res.status).toBe(401);
     expect(res.body.error).toContain('Authorization header');
@@ -133,7 +133,7 @@ describe('datasets seller dashboard auth', () => {
     });
 
     const res = await request(app)
-      .get('/api/datasets/seller/dashboard')
+      .get('/api/v1/datasets/seller/dashboard')
       .set('Authorization', `Bearer ${expiredToken}`);
 
     expect(res.status).toBe(401);
@@ -147,7 +147,7 @@ describe('datasets seller dashboard auth', () => {
     });
 
     const res = await request(app)
-      .get('/api/datasets/seller/dashboard')
+      .get('/api/v1/datasets/seller/dashboard')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
@@ -172,7 +172,7 @@ describe('datasets seller dashboard auth', () => {
     });
 
     const res = await request(app)
-      .get('/api/datasets/transactions')
+      .get('/api/v1/datasets/transactions')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
@@ -188,9 +188,10 @@ describe('datasets seller dashboard auth', () => {
     });
 
     const res = await request(app)
-      .get(`/api/datasets/${datasetB.id}/transactions`)
+      .get(`/api/v1/datasets/${datasetB.id}/transactions`)
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(403);
   });
 });
+
