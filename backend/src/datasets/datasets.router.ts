@@ -151,8 +151,8 @@ async function getSellerDashboardData(sellerWallet: string) {
  *         name: limit
  *         schema:
  *           type: integer
- *           default: 12
- *           maximum: 50
+ *           default: 20
+ *           maximum: 100
  *         description: Number of items per page
  *       - in: query
  *         name: search
@@ -206,6 +206,8 @@ async function getSellerDashboardData(sellerWallet: string) {
  *                   type: integer
  *                 page:
  *                   type: integer
+ *                 pageSize:
+ *                   type: integer
  *                 totalPages:
  *                   type: integer
  *       400:
@@ -214,8 +216,11 @@ async function getSellerDashboardData(sellerWallet: string) {
 
 // GET /api/datasets — list datasets with pagination, filtering, and sorting
 datasetsRouter.get('/', async (req: Request, res: Response) => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 12;
+  const parsedPage = Number.parseInt(req.query.page as string, 10);
+  const parsedLimit = Number.parseInt(req.query.limit as string, 10);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const limit =
+    Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 100) : 20;
   const search = ((req.query.search as string) || '').toLowerCase();
   const types = [req.query.type]
     .flat()
@@ -228,12 +233,11 @@ datasetsRouter.get('/', async (req: Request, res: Response) => {
   const minQueries = req.query.minQueries === undefined ? undefined : Number(req.query.minQueries);
   const sort = (req.query.sort as string) || 'popular';
 
-  if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1) {
+  if (
+    (req.query.page !== undefined && (!Number.isFinite(parsedPage) || parsedPage < 1)) ||
+    (req.query.limit !== undefined && (!Number.isFinite(parsedLimit) || parsedLimit < 1))
+  ) {
     return res.status(400).json({ error: 'Invalid page or limit' });
-  }
-
-  if (limit > 50) {
-    return res.status(400).json({ error: 'Limit exceeds maximum of 50' });
   }
 
   if (
@@ -288,6 +292,7 @@ datasetsRouter.get('/', async (req: Request, res: Response) => {
     data,
     total,
     page,
+    pageSize: limit,
     totalPages,
   });
 });

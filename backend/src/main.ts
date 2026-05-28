@@ -6,7 +6,10 @@ dotenv.config();
 initializeDatadog();
 initializeSentry();
 
-import express, { Request, Response } from 'express';
+import 'express-async-errors';
+import express, { Request, Response, NextFunction } from 'express';
+import pino = require('pino');
+import { randomUUID } from 'crypto';
 import cors from 'cors';
 import path from 'path';
 import http from 'http';
@@ -15,7 +18,11 @@ import _swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 
 import { datasetsRouter } from './datasets/datasets.router';
-import { paymentsRouter, startDeliveryRetryWorker, stopDeliveryRetryWorker } from './payments/payments.router';
+import {
+  paymentsRouter,
+  startDeliveryRetryWorker,
+  stopDeliveryRetryWorker,
+} from './payments/payments.router';
 import { agentRouter } from './agent/agent.router';
 import { webhooksRouter } from './webhooks/webhook.router';
 import { readStore } from './common/storage';
@@ -29,10 +36,95 @@ import { createCorsOptions } from './common/cors';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Compress all compressible API responses (brotli preferred, gzip fallback)
+const isProduction = process.env.NODE_ENV === 'production';
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  redact: {
+    paths: [
+      'req.headers.authorization',
+      'req.headers.cookie',
+      'headers.authorization',
+      'headers.cookie',
+    ],
+    censor: '[REDACTED]',
+  },
+  ...(isProduction
+    ? {}
+    : {
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            translateTime: 'SYS:standard',
+            ignore: 'pid,hostname',
+          },
+        },
+      }),
+});
+
+const sanitizeHeaders = (headers: Record<string, unknown>) => ({
+  ...headers,
+  ...(headers.authorization ? { authorization: '[REDACTED]' } : {}),
+  ...(headers.cookie ? { cookie: '[REDACTED]' } : {}),
+});
+
 app.use(createCompressionMiddleware());
 // Ensure client IP is derived correctly when running behind a reverse proxy.
 app.set('trust proxy', 1);
+
+// Request correlation ID middleware — runs before all routes so every log line
+// and error response can include the same unique ID for a given request.
+// Honours a forwarded x-request-id from the client (e.g. the frontend or an
+// upstream proxy); falls back to a fresh UUID when none is provided.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  req.id = (req.headers['x-request-id'] as string) || randomUUID();
+  res.setHeader('x-request-id', req.id);
+  next();
+});
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const startTime = Date.now();
+  const requestLogger = logger.child({ requestId: req.id });
+
+  const onFinish = () => {
+    const durationMs = Date.now() - startTime;
+
+    const logPayload = {
+      method: req.method,
+      url: req.originalUrl || req.url,
+      statusCode: res.statusCode,
+      durationMs,
+      headers: sanitizeHeaders(req.headers as Record<string, unknown>),
+    };
+
+    if (res.statusCode >= 500) {
+      requestLogger.error(logPayload, 'HTTP request completed');
+    } else if (res.statusCode >= 400) {
+      requestLogger.warn(logPayload, 'HTTP request completed');
+    } else {
+      requestLogger.info(logPayload, 'HTTP request completed');
+    }
+  };
+
+  res.on('finish', onFinish);
+  res.on('close', () => {
+    if (!res.writableEnded) {
+      const durationMs = Date.now() - startTime;
+      requestLogger.warn(
+        {
+          method: req.method,
+          url: req.originalUrl || req.url,
+          statusCode: res.statusCode,
+          durationMs,
+          headers: sanitizeHeaders(req.headers as Record<string, unknown>),
+        },
+        'HTTP request aborted',
+      );
+    }
+  });
+
+  next();
+});
 
 app.use(cors(createCorsOptions()));
 app.use(express.json({ limit: '2mb' }));
@@ -69,11 +161,11 @@ const demoLimiter = rateLimit({
   message: { error: 'Too many requests' },
 });
 
-// Demo limiters first (more specific), then strict, then global on /api
-app.use('/api/verify/:id/demo', demoLimiter);
-app.use('/api/agent/research/demo', demoLimiter);
-app.use('/api/verify', strictLimiter);
-app.use('/api/agent/research', strictLimiter);
+// Demo limiters first (more specific), then strict, then global on /api/v1
+app.use('/api/v1/verify/:id/demo', demoLimiter);
+app.use('/api/v1/agent/research/demo', demoLimiter);
+app.use('/api/v1/verify', strictLimiter);
+app.use('/api/v1/agent/research', strictLimiter);
 app.use(globalLimiter);
 
 // Initialize backup scheduler
@@ -179,14 +271,6 @@ app.get('/health', async (_req, res) => {
   });
 });
 
-// Global error handling middleware — Issue #283 (standard error shape)
-app.use((err: Error, _req: Request, res: Response, _next: () => void) => {
-  const message = err.message || 'Internal server error';
-  console.error('[Global Error Handler]', err);
-  Sentry.captureException(err);
-  res.status(500).json({ error: message, code: 'INTERNAL_ERROR' });
-});
-
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason: unknown) => {
   console.error('[Unhandled Rejection]', reason);
@@ -199,12 +283,39 @@ process.on('uncaughtException', (err: Error) => {
   Sentry.captureException(err);
 });
 
-// Routes
-app.use('/api/datasets', datasetsRouter);
-app.use('/api', paymentsRouter);
-app.use('/api/agent', agentRouter);
-app.use('/api/webhooks', webhooksRouter);
-app.use('/api', backupRouter);
+// Routes under versioned API namespace.
+const v1Router = express.Router();
+
+v1Router.use('/datasets', datasetsRouter);
+v1Router.use('/agent', agentRouter);
+v1Router.use('/webhooks', webhooksRouter);
+v1Router.use('/payments', paymentsRouter);
+v1Router.use('/backups', backupRouter);
+
+app.use('/api/v1', v1Router);
+
+// Legacy /api routes redirect to /api/v1 for a transition period.
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+  if (req.originalUrl.startsWith('/api/v1')) {
+    return next();
+  }
+
+  const targetUrl = `/api/v1${req.originalUrl.slice('/api'.length)}`;
+  res.setHeader('Warning', '299 - "Deprecated API version. Use /api/v1/."');
+  res.setHeader('Deprecation', 'true');
+  res.redirect(308, targetUrl);
+});
+
+// Global error handling middleware — Issue #283 (standard error shape)
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status ?? 500;
+  const message = err.message || 'Internal server error';
+  console.error(`[Global Error Handler] [requestId=${req.id}]`, err);
+  Sentry.captureException(err);
+  res
+    .status(status)
+    .json({ error: message, code: err.code || 'INTERNAL_ERROR', requestId: req.id });
+});
 
 startDeliveryRetryWorker();
 
@@ -216,7 +327,7 @@ const wsApiKey = process.env.WEBSOCKET_API_KEY || '';
 const wsServer = initializeWebSocketServer(server, wsApiKey);
 
 // Add endpoint for WebSocket server stats
-app.get('/api/ws/stats', (_req: Request, res: Response) => {
+app.get('/api/v1/ws/stats', (_req: Request, res: Response) => {
   res.json(wsServer.getStats());
 });
 

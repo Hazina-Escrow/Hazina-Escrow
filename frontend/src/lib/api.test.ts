@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetRequestThrottleForTests, api } from './api';
+import {
+  __resetRequestThrottleForTests,
+  api,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  AGENT_REQUEST_TIMEOUT_MS,
+} from './api';
 
 function createFetchResponse(body: unknown) {
   return {
@@ -32,6 +37,7 @@ describe('api request throttling', () => {
             data: [],
             total: 0,
             page: 1,
+            pageSize: 20,
             totalPages: 1,
           }),
         );
@@ -47,6 +53,7 @@ describe('api request throttling', () => {
             data: [],
             total: 0,
             page: 1,
+            pageSize: 20,
             totalPages: 1,
           }),
         ),
@@ -98,6 +105,7 @@ describe('api request throttling', () => {
           data: [],
           total: 0,
           page: 1,
+          pageSize: 20,
           totalPages: 1,
         }),
       );
@@ -128,6 +136,7 @@ describe('api request throttling', () => {
           data: [],
           total: 0,
           page: 1,
+          pageSize: 20,
           totalPages: 1,
         }),
       ),
@@ -146,11 +155,64 @@ describe('api request throttling', () => {
       sort: 'price-asc',
     });
 
-    const url = new URL(String(fetchMock.mock.calls[0][0]), 'http://localhost');
+    const firstCall = fetchMock.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    const url = new URL(String(firstCall?.[0]), 'http://localhost');
     expect(url.searchParams.getAll('type')).toEqual(['yield-data', 'risk-scores']);
     expect(url.searchParams.get('minPrice')).toBe('0.5');
     expect(url.searchParams.get('maxPrice')).toBe('5');
     expect(url.searchParams.get('minQueries')).toBe('1000');
     expect(url.searchParams.get('sort')).toBe('price-asc');
+  });
+
+  it('times out with friendly message for default API requests', async () => {
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        const signal = init?.signal as AbortSignal | undefined;
+        const abort = new Error('Aborted');
+        abort.name = 'AbortError';
+        if (signal?.aborted) {
+          reject(abort);
+          return;
+        }
+        signal?.addEventListener('abort', () => reject(abort));
+      }),
+    );
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const datasetsPromise = api.getDatasets();
+
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS);
+
+    await expect(datasetsPromise).rejects.toThrow('Request timed out — please try again');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the agent timeout constant for agent AI requests', async () => {
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        const signal = init?.signal as AbortSignal | undefined;
+        const abort = new Error('Aborted');
+        abort.name = 'AbortError';
+        if (signal?.aborted) {
+          reject(abort);
+          return;
+        }
+        signal?.addEventListener('abort', () => reject(abort));
+      }),
+    );
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const agentPromise = api.agentDemo('long running query');
+
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(AGENT_REQUEST_TIMEOUT_MS);
+
+    await expect(agentPromise).rejects.toThrow('Request timed out — please try again');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/agent/research/demo');
   });
 });

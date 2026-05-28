@@ -30,6 +30,21 @@ export async function sendUsdcPayment(params: SendPaymentParams): Promise<SendPa
   const keypair = StellarSdk.Keypair.fromSecret(secret);
   const account = await server.loadAccount(keypair.publicKey());
 
+  const usdcBal = account.balances.find(b => {
+    if (b.asset_type === 'native') return false;
+    const bal = b as { asset_code: string; asset_issuer: string };
+    return bal.asset_code === 'USDC' && bal.asset_issuer === USDC_ISSUER;
+  }) as { balance: string } | undefined;
+
+  if (!usdcBal) {
+    throw new Error('Agent wallet has no USDC trustline — cannot send payment');
+  }
+  if (parseFloat(usdcBal.balance) < parseFloat(params.amount)) {
+    throw new Error(
+      `Insufficient USDC balance: need ${params.amount} USDC, have ${usdcBal.balance} USDC`,
+    );
+  }
+
   const usdc = new StellarSdk.Asset('USDC', USDC_ISSUER);
 
   const txBuilder = new StellarSdk.TransactionBuilder(account, {
