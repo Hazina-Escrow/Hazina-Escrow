@@ -57,17 +57,40 @@ export class StellarTimeoutError extends Error {
   }
 }
 
+async function withHorizonRetry<T>(fn: () => Promise<T>): Promise<T> {
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const is404 =
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        (err as { response?: { status?: number } }).response?.status === 404;
+      if (is404 && attempt < maxAttempts - 1) {
+        await new Promise(r => setTimeout(r, 1_000 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error('unreachable');
+}
+
 export async function verifyStellarPayment(params: VerifyParams): Promise<VerifyResult> {
   const { txHash, expectedAmount, destinationAddress } = params;
 
   try {
     const [tx, ops] = await withStellarTimeout(
       () =>
-        stellarBreaker.execute(() =>
-          Promise.all([
-            server.transactions().transaction(txHash).call(),
-            server.operations().forTransaction(txHash).call(),
-          ]),
+        withHorizonRetry(() =>
+          stellarBreaker.execute(() =>
+            Promise.all([
+              server.transactions().transaction(txHash).call(),
+              server.operations().forTransaction(txHash).call(),
+            ]),
+          ),
         ),
       STELLAR_TIMEOUT_MS,
     );
