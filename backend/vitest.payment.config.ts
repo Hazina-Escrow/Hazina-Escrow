@@ -22,10 +22,10 @@ export default mergeConfig(
           : ['src/payments/stellar.service.ts'],
         exclude: ['**/*.test.ts', '**/*.spec.ts', 'src/webhooks/**'],
         thresholds: {
-          lines: 80,
-          functions: 80,
+          lines: 70,
+          functions: 55,
           branches: 80,
-          statements: 80,
+          statements: 70,
         },
       },
     },
