@@ -64,6 +64,8 @@ describe('QueryModal', () => {
       },
       transaction: {
         hash: 'demo-hash',
+        status: 'confirmed',
+        deliveryStatus: 'delivered',
         amount: 0.05,
         sellerReceived: 0.0475,
         platformFee: 0.0025,
@@ -114,6 +116,8 @@ describe('QueryModal', () => {
       },
       transaction: {
         hash: 'demo-hash',
+        status: 'confirmed',
+        deliveryStatus: 'delivered',
         amount: 0.05,
         sellerReceived: 0.0475,
         platformFee: 0.0025,
@@ -174,5 +178,26 @@ describe('QueryModal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
     expect(screen.getByText('Transaction Hash')).toBeTruthy();
+  });
+
+  it('traps focus inside the modal and closes on Escape', async () => {
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    const closeButton = screen.getByRole('button', { name: 'Close' });
+    const proceedButton = screen.getByRole('button', { name: 'Proceed to Payment' });
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(closeButton);
+    });
+
+    fireEvent.keyDown(closeButton, { key: 'Tab' });
+    expect(document.activeElement).toBe(closeButton);
+
+    fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(proceedButton);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,8 +1,14 @@
-import { createContext, useEffect, useState, type ReactNode } from "react";
-import { DEFAULT_LOCALE, LOCALE_LABELS, SUPPORTED_LOCALES, type MessageKey, type SupportedLocale } from "./catalog";
-import { I18N_STORAGE_KEY, normalizeLocale, resolveInitialLocale } from "./config";
-import { formatCurrency, formatDate, formatNumber, translate } from "./translate";
-import type { TranslationParams } from "./types";
+import { createContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  DEFAULT_LOCALE,
+  LOCALE_LABELS,
+  SUPPORTED_LOCALES,
+  type MessageKey,
+  type SupportedLocale,
+} from './catalog';
+import { I18N_STORAGE_KEY, normalizeLocale, resolveInitialLocale } from './config';
+import { formatCurrency, formatDate, formatNumber, translate } from './translate';
+import type { TranslationParams } from './types';
 
 export interface I18nContextValue {
   locale: SupportedLocale;
@@ -12,11 +18,7 @@ export interface I18nContextValue {
   getLocaleLabel: (locale: SupportedLocale) => string;
   t: (key: MessageKey, params?: TranslationParams) => string;
   number: (value: number, options?: Intl.NumberFormatOptions) => string;
-  currency: (
-    value: number,
-    currency?: string,
-    options?: Intl.NumberFormatOptions,
-  ) => string;
+  currency: (value: number, currency?: string, options?: Intl.NumberFormatOptions) => string;
   date: (value: Date | number, options?: Intl.DateTimeFormatOptions) => string;
 }
 
@@ -24,6 +26,13 @@ export interface I18nProviderProps {
   children: ReactNode;
   initialLocale?: SupportedLocale;
   storageKey?: string;
+}
+
+export const RTL_LOCALES = ['ar', 'he', 'fa', 'ur'] as const;
+
+export function getLocaleDirection(locale: string): 'ltr' | 'rtl' {
+  const language = locale.toLowerCase().split('-')[0];
+  return RTL_LOCALES.includes(language as (typeof RTL_LOCALES)[number]) ? 'rtl' : 'ltr';
 }
 
 export const I18nContext = createContext<I18nContextValue | null>(null);
@@ -40,7 +49,7 @@ export function I18nProvider({
   useEffect(() => {
     const normalized = normalizeLocale(locale) ?? DEFAULT_LOCALE;
     document.documentElement.lang = normalized;
-    document.documentElement.dir = "ltr";
+    document.documentElement.dir = getLocaleDirection(normalized);
     window.localStorage.setItem(storageKey, normalized);
   }, [locale, storageKey]);
 
@@ -49,7 +58,7 @@ export function I18nProvider({
     defaultLocale: DEFAULT_LOCALE,
     availableLocales: SUPPORTED_LOCALES,
     setLocale: setLocaleState,
-    getLocaleLabel: (nextLocale) => LOCALE_LABELS[nextLocale] ?? nextLocale,
+    getLocaleLabel: nextLocale => LOCALE_LABELS[nextLocale] ?? nextLocale,
     t: (key, params) => translate(locale, key, params),
     number: (valueToFormat, options) => formatNumber(locale, valueToFormat, options),
     currency: (valueToFormat, currencyCode, options) =>

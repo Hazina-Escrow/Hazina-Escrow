@@ -15,6 +15,10 @@ const ESCROW_MIN_TTL: u32 = 17_280;
 
 const MAX_BASIS_POINTS: u32 = 10_000;
 
+// Circuit-breaker defaults (overridable by admin)
+const DEFAULT_MAX_ESCROW_AMOUNT: i128 = 1_000_000_000_000;
+const DEFAULT_MAX_ESCROWS_PER_LEDGER: u32 = 100;
+
 // ─── Storage keys ───────────────────────────────────────────────────────────
 
 #[contracttype]
@@ -24,6 +28,12 @@ pub enum DataKey {
     EscrowCount,
     WhitelistEnforced,
     Paused,
+    // Circuit-breaker config
+    MaxEscrowAmount,
+    MaxEscrowsPerLedger,
+    EscrowsThisLedger,
+    LastEscrowLedger,
+    // Per-dataset / per-address
     DatasetFee(String),
     Whitelisted(Address),
     Blacklisted(Address),
@@ -50,6 +60,8 @@ pub enum HazinaEscrowError {
     AddressNotWhitelisted = 10,
     EmptyDatasetId = 11,
     Paused = 12,
+    AmountExceedsCircuitBreaker = 13,
+    RateLimitExceeded = 14,
 }
 
 #[contracttype]
@@ -114,6 +126,8 @@ impl HazinaEscrow {
         env.storage().instance().set(&DataKey::Paused, &false);
     }
 
+    // ─── Pause / unpause ────────────────────────────────────────────────────
+
     /// Emergency circuit breaker: pause buyer locks and admin releases.
     pub fn pause(env: Env, admin: Address) {
         admin.require_auth();
@@ -140,6 +154,8 @@ impl HazinaEscrow {
             .get(&DataKey::Paused)
             .unwrap_or(false)
     }
+
+    // ─── Fee management ─────────────────────────────────────────────────────
 
     pub fn set_default_fee(env: Env, admin: Address, fee_bps: u32) {
         admin.require_auth();
@@ -171,16 +187,7 @@ impl HazinaEscrow {
 
     /// Update platform fee (max 1000 bps = 10%). Only admin.
     pub fn update_fee(env: Env, admin: Address, new_fee_bps: u32) {
-        admin.require_auth();
-        Self::assert_admin(&env, &admin);
-        assert!(new_fee_bps <= 1_000, "fee too high");
-        env.storage()
-            .instance()
-            .set(&DataKey::DefaultPlatformFee, &new_fee_bps);
-        env.events().publish(
-            (soroban_sdk::symbol_short!("fee_upd"),),
-            (admin, new_fee_bps),
-        );
+        Self::set_default_fee(env, admin, new_fee_bps);
     }
 
     pub fn set_dataset_fee(env: Env, admin: Address, dataset_id: String, fee_bps: u32) {
@@ -241,6 +248,19 @@ impl HazinaEscrow {
             effective_fee_bps,
         }
     }
+
+    // ─── Admin management ───────────────────────────────────────────────────
+
+    /// Transfer admin role to a new address. Only current admin can call.
+    pub fn transfer_admin(env: Env, admin: Address, new_admin: Address) {
+        admin.require_auth();
+        Self::assert_admin(&env, &admin);
+        env.storage().instance().set(&DataKey::Admin, &new_admin);
+        env.events()
+            .publish((soroban_sdk::symbol_short!("admin"),), (new_admin,));
+    }
+
+    // ─── Address policy ─────────────────────────────────────────────────────
 
     pub fn set_whitelist_enforced(env: Env, admin: Address, enforced: bool) {
         admin.require_auth();
@@ -307,6 +327,56 @@ impl HazinaEscrow {
         }
     }
 
+    // ─── Circuit-breaker config ──────────────────────────────────────────────
+
+    /// Update the per-escrow amount ceiling. Only admin.
+    pub fn set_max_escrow_amount(env: Env, admin: Address, max_amount: i128) {
+        admin.require_auth();
+        Self::assert_admin(&env, &admin);
+        if max_amount <= 0 {
+            panic_with_error!(&env, HazinaEscrowError::InvalidAmount);
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::MaxEscrowAmount, &max_amount);
+        env.events().publish(
+            (soroban_sdk::symbol_short!("cb_amt"),),
+            (admin, max_amount),
+        );
+    }
+
+    /// Update the maximum number of escrows that can be created per ledger. Only admin.
+    pub fn set_max_escrows_per_ledger(env: Env, admin: Address, max_per_ledger: u32) {
+        admin.require_auth();
+        Self::assert_admin(&env, &admin);
+        if max_per_ledger == 0 {
+            panic_with_error!(&env, HazinaEscrowError::InvalidAmount);
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::MaxEscrowsPerLedger, &max_per_ledger);
+        env.events().publish(
+            (soroban_sdk::symbol_short!("cb_rate"),),
+            (admin, max_per_ledger),
+        );
+    }
+
+    pub fn get_max_escrow_amount(env: Env) -> i128 {
+        env.storage()
+            .instance()
+            .get(&DataKey::MaxEscrowAmount)
+            .unwrap_or(DEFAULT_MAX_ESCROW_AMOUNT)
+    }
+
+    pub fn get_max_escrows_per_ledger(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::MaxEscrowsPerLedger)
+            .unwrap_or(DEFAULT_MAX_ESCROWS_PER_LEDGER)
+    }
+
+    // ─── Escrow lifecycle ───────────────────────────────────────────────────
+
     pub fn lock(
         env: Env,
         buyer: Address,
@@ -324,12 +394,16 @@ impl HazinaEscrow {
         Self::require_operational_address(&env, &buyer);
         Self::require_operational_address(&env, &seller);
 
+        // Circuit-breaker: amount ceiling and per-ledger rate limit
+        Self::check_amount_circuit_breaker(&env, amount);
+        Self::check_rate_circuit_breaker_n(&env, 1);
+
         let token_client = token::Client::new(&env, &token);
         let _ = token_client.decimals();
         token_client.transfer(&buyer, &env.current_contract_address(), &amount);
 
         let fee_bps = Self::resolve_fee_bps(&env, &dataset_id);
-        let escrow_id = env
+        let escrow_id: u64 = env
             .storage()
             .instance()
             .get(&DataKey::EscrowCount)
@@ -346,6 +420,7 @@ impl HazinaEscrow {
             released: false,
             refunded: false,
         };
+
         env.storage()
             .persistent()
             .set(&EscrowKey::Record(escrow_id), &record);
@@ -390,11 +465,15 @@ impl HazinaEscrow {
                 .get(i)
                 .unwrap_or_else(|| panic_with_error!(&env, HazinaEscrowError::EscrowNotFound));
             Self::assert_valid_amount(&env, share.amount);
-            Self::assert_valid_parties(&env, &buyer, &share.seller);
+            // Circuit-breaker: check each individual escrow amount
+            Self::check_amount_circuit_breaker(&env, share.amount);
             Self::require_operational_address(&env, &share.seller);
             total_amount += share.amount;
             i += 1;
         }
+
+        // Circuit-breaker: rate-limit the whole batch atomically
+        Self::check_rate_circuit_breaker_n(&env, shares.len());
 
         let token_client = token::Client::new(&env, &token);
         let _ = token_client.decimals();
@@ -474,14 +553,6 @@ impl HazinaEscrow {
             ESCROW_BUMP_LEDGERS,
         );
 
-        let mut record: EscrowRecord = env
-            .storage()
-            .persistent()
-            .get(&EscrowKey::Record(escrow_id))
-            .expect("escrow not found");
-
-        assert!(!record.released, "already released");
-        assert!(!record.refunded, "already refunded");
         let mut record = Self::read_escrow(&env, escrow_id);
         if record.released {
             panic_with_error!(&env, HazinaEscrowError::AlreadyReleased);
@@ -516,11 +587,10 @@ impl HazinaEscrow {
             ESCROW_BUMP_LEDGERS,
         );
 
-        env.storage()
-            .persistent()
-            .get(&EscrowKey::Record(escrow_id))
-            .expect("escrow not found")
+        Self::read_escrow(&env, escrow_id)
     }
+
+    // ─── Convenience aliases ────────────────────────────────────────────────
 
     pub fn set_fee(env: Env, admin: Address, fee_bps: u32) {
         Self::set_default_fee(env, admin, fee_bps);
@@ -529,6 +599,8 @@ impl HazinaEscrow {
     pub fn set_admin(env: Env, admin: Address, new_admin: Address) {
         Self::transfer_admin(env, admin, new_admin);
     }
+
+    // ─── Private helpers ────────────────────────────────────────────────────
 
     fn assert_admin(env: &Env, caller: &Address) {
         let admin: Address = env
@@ -636,14 +708,74 @@ impl HazinaEscrow {
             (escrow_id, record.seller, seller_cut, platform_cut),
         );
     }
+
+    /// Panics with AmountExceedsCircuitBreaker if `amount` exceeds the configured ceiling.
+    /// Emits a `cb_amt` event before panicking so monitors can alert operators.
+    fn check_amount_circuit_breaker(env: &Env, amount: i128) {
+        let max: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::MaxEscrowAmount)
+            .unwrap_or(DEFAULT_MAX_ESCROW_AMOUNT);
+        if amount > max {
+            env.events().publish(
+                (soroban_sdk::symbol_short!("cb_amt"),),
+                (amount, max),
+            );
+            panic_with_error!(env, HazinaEscrowError::AmountExceedsCircuitBreaker);
+        }
+    }
+
+    /// Panics with RateLimitExceeded if creating `n` escrows would exceed the
+    /// per-ledger cap. Otherwise increments the ledger counter by `n`.
+    /// Emits a `cb_rate` event before panicking so monitors can alert operators.
+    fn check_rate_circuit_breaker_n(env: &Env, n: u32) {
+        let max: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::MaxEscrowsPerLedger)
+            .unwrap_or(DEFAULT_MAX_ESCROWS_PER_LEDGER);
+
+        let current_ledger = env.ledger().sequence();
+        let last_ledger: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::LastEscrowLedger)
+            .unwrap_or(0);
+
+        // Reset counter when we've moved to a new ledger
+        let current_count: u32 = if current_ledger != last_ledger {
+            0
+        } else {
+            env.storage()
+                .instance()
+                .get(&DataKey::EscrowsThisLedger)
+                .unwrap_or(0)
+        };
+
+        let new_count = current_count + n;
+        if new_count > max {
+            env.events().publish(
+                (soroban_sdk::symbol_short!("cb_rate"),),
+                (new_count, max, current_ledger),
+            );
+            panic_with_error!(env, HazinaEscrowError::RateLimitExceeded);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::EscrowsThisLedger, &new_count);
+        env.storage()
+            .instance()
+            .set(&DataKey::LastEscrowLedger, &current_ledger);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use soroban_sdk::{
-        testutils::Address as _,
-        Bytes,
+        testutils::{Address as _, Ledger as _},
         token::{Client as TokenClient, StellarAssetClient},
         Address, Env, String,
     };
@@ -1131,7 +1263,6 @@ mod tests {
         let eurc_balance = TokenClient::new(&env, &eurc).balance(&seller);
         assert_eq!(usdc_balance, usdc_amount - (usdc_amount * 250 / 10_000));
         assert_eq!(eurc_balance, eurc_amount - (eurc_amount * 250 / 10_000));
-        // Fee is stored correctly after init
         assert_eq!(client.get_fee(), 250);
     }
 
@@ -1162,8 +1293,6 @@ mod tests {
         let new_admin = Address::generate(&env);
         client.set_admin(&admin, &new_admin);
 
-        // Old admin can no longer change the fee (new admin is required)
-        // New admin can change the fee successfully
         client.set_fee(&new_admin, &100);
         assert_eq!(client.get_fee(), 100);
     }
@@ -1213,7 +1342,7 @@ mod tests {
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_panics() {
         let (_, client, admin, _, _, _) = setup();
-        client.initialize(&admin, &500); // second call must panic
+        client.initialize(&admin, &500);
     }
 
     #[test]
@@ -1283,6 +1412,123 @@ mod tests {
         let record = client.get_escrow(&escrow_id);
         assert!(record.refunded);
         assert_eq!(token_client.balance(&buyer), INITIAL_BUYER_BALANCE);
+    }
+
+    // ─── Circuit-breaker tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_circuit_breaker_amount_within_limit_passes() {
+        let (env, client, _admin, buyer, seller, usdc) = setup();
+        // Default limit is 1_000_000_000_000; 1_000_000 is well under it
+        let escrow_id = client.lock(
+            &buyer,
+            &seller,
+            &usdc,
+            &1_000_000,
+            &dataset_id(&env, "ds-cb-ok"),
+        );
+        let record = client.get_escrow(&escrow_id);
+        assert_eq!(record.amount, 1_000_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #13)")]
+    fn test_circuit_breaker_amount_exceeds_limit_fails() {
+        let (env, client, admin, buyer, seller, usdc) = setup();
+        // Set a low ceiling
+        client.set_max_escrow_amount(&admin, &500_000);
+        client.lock(
+            &buyer,
+            &seller,
+            &usdc,
+            &1_000_000,
+            &dataset_id(&env, "ds-cb-over"),
+        );
+    }
+
+    #[test]
+    fn test_circuit_breaker_admin_can_raise_limit() {
+        let (env, client, admin, buyer, seller, usdc) = setup();
+        // Set a ceiling that would normally block the amount
+        client.set_max_escrow_amount(&admin, &500_000);
+        // Raise it high enough
+        client.set_max_escrow_amount(&admin, &2_000_000);
+        // Now the lock should succeed
+        let escrow_id = client.lock(
+            &buyer,
+            &seller,
+            &usdc,
+            &1_000_000,
+            &dataset_id(&env, "ds-cb-raised"),
+        );
+        let record = client.get_escrow(&escrow_id);
+        assert_eq!(record.amount, 1_000_000);
+    }
+
+    #[test]
+    fn test_circuit_breaker_get_max_escrow_amount_returns_default() {
+        let (_env, client, _admin, _buyer, _seller, _usdc) = setup();
+        assert_eq!(client.get_max_escrow_amount(), DEFAULT_MAX_ESCROW_AMOUNT);
+    }
+
+    #[test]
+    fn test_circuit_breaker_get_max_escrow_amount_returns_updated_value() {
+        let (_env, client, admin, _buyer, _seller, _usdc) = setup();
+        client.set_max_escrow_amount(&admin, &999_999);
+        assert_eq!(client.get_max_escrow_amount(), 999_999);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #3)")]
+    fn test_circuit_breaker_set_max_amount_requires_admin() {
+        let (env, client, _admin, _buyer, _seller, _usdc) = setup();
+        let impostor = Address::generate(&env);
+        client.set_max_escrow_amount(&impostor, &1_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #14)")]
+    fn test_circuit_breaker_rate_limit_exceeded() {
+        let (env, client, admin, buyer, seller, usdc) = setup();
+        // Set a very tight rate limit
+        client.set_max_escrows_per_ledger(&admin, &2);
+
+        // First two should pass
+        client.lock(&buyer, &seller, &usdc, &1_000, &dataset_id(&env, "ds-r1"));
+        client.lock(&buyer, &seller, &usdc, &1_000, &dataset_id(&env, "ds-r2"));
+        // Third in the same ledger should trip the breaker
+        client.lock(&buyer, &seller, &usdc, &1_000, &dataset_id(&env, "ds-r3"));
+    }
+
+    #[test]
+    fn test_circuit_breaker_rate_limit_resets_across_ledgers() {
+        let (env, client, admin, buyer, seller, usdc) = setup();
+        client.set_max_escrows_per_ledger(&admin, &1);
+
+        // First lock in ledger 0 succeeds
+        client.lock(&buyer, &seller, &usdc, &1_000, &dataset_id(&env, "ds-rl-1"));
+
+        // Advance the ledger so the counter resets
+        env.ledger().with_mut(|li| li.sequence_number += 1);
+
+        // Should succeed again in the new ledger
+        client.lock(&buyer, &seller, &usdc, &1_000, &dataset_id(&env, "ds-rl-2"));
+    }
+
+    #[test]
+    fn test_circuit_breaker_get_max_escrows_per_ledger_returns_default() {
+        let (_env, client, _admin, _buyer, _seller, _usdc) = setup();
+        assert_eq!(
+            client.get_max_escrows_per_ledger(),
+            DEFAULT_MAX_ESCROWS_PER_LEDGER
+        );
+    }
+
+    #[test]
+    fn test_circuit_breaker_set_max_escrows_per_ledger_updates_value() {
+        let (_env, client, admin, _buyer, _seller, _usdc) = setup();
+        client.set_max_escrows_per_ledger(&admin, &50);
+        assert_eq!(client.get_max_escrows_per_ledger(), 50);
     }
 }
 

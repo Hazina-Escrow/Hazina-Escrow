@@ -34,6 +34,8 @@ import {
 } from '../components/ui/SkeletonLoader';
 import clsx from 'clsx';
 import { useI18n } from '../i18n';
+import { useTransactionWebSocket } from '../hooks/useTransactionWebSocket';
+import { WebSocketStatus } from '../components/ui/WebSocketStatus';
 
 /* ── Animated stat card ── */
 function StatCard({
@@ -54,10 +56,11 @@ function StatCard({
   prefix?: string;
   decimals?: number;
   color?: string;
-  trend?: number;
+  trend?: number | null;
   locale?: string;
 }) {
   const animated = useCountUp(value, 1800, decimals);
+  const trendValid = trend !== undefined && trend !== null && isFinite(trend) && !isNaN(trend);
   return (
     <div className="glass-card-gold p-5">
       <div className="flex items-start justify-between mb-3">
@@ -68,11 +71,17 @@ function StatCard({
           <span
             className={clsx(
               'text-xs font-body font-medium flex items-center gap-0.5 px-2 py-1 rounded-full',
-              trend >= 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10',
+              !trendValid
+                ? 'text-foreground-muted bg-surface-2'
+                : trend >= 0
+                  ? 'text-emerald-400 bg-emerald-400/10'
+                  : 'text-red-400 bg-red-400/10',
             )}
           >
-            <ArrowUpRight className={clsx('w-3 h-3', trend < 0 && 'rotate-180')} />
-            {Math.abs(trend)}%
+            {trendValid && (
+              <ArrowUpRight className={clsx('w-3 h-3', trend < 0 && 'rotate-180')} />
+            )}
+            {trendValid ? `${Math.abs(trend).toFixed(1)}%` : '—'}
           </span>
         )}
       </div>
@@ -117,6 +126,12 @@ function ChartTooltip({
       ))}
     </div>
   );
+}
+
+/* ── Safe percentage change (returns null when previous is 0 to avoid NaN/Infinity) ── */
+function safePctChange(current: number, previous: number): number | null {
+  if (previous === 0) return null;
+  return ((current - previous) / previous) * 100;
 }
 
 /* ── Generate 7-day chart data from transactions ── */
@@ -202,6 +217,15 @@ export default function DashboardPage() {
   const totalEarned = datasets.reduce((s, d) => s + d.totalEarned, 0);
   const totalQueries = datasets.reduce((s, d) => s + d.queriesServed, 0);
   const chartData = buildChartData(transactions, locale);
+
+  // Compare last 3 days vs preceding 4 days for trend indicators
+  const recentEarned = chartData.slice(-3).reduce((s, d) => s + d.earned, 0);
+  const prevEarned = chartData.slice(0, 4).reduce((s, d) => s + d.earned, 0);
+  const earnedTrend = safePctChange(recentEarned, prevEarned);
+
+  const recentQueries = chartData.slice(-3).reduce((s, d) => s + d.queries, 0);
+  const prevQueries = chartData.slice(0, 4).reduce((s, d) => s + d.queries, 0);
+  const queriesTrend = safePctChange(recentQueries, prevQueries);
   const recentTx = [...transactions]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, 8);
@@ -231,7 +255,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Charts row skeleton */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 overflow-x-hidden">
             <div className="lg:col-span-2">
               <ChartSkeleton />
             </div>
@@ -304,6 +328,9 @@ export default function DashboardPage() {
                   {t('dashboard.refreshing')}
                 </span>
               )}
+              {hasLoadedOnce && (
+                <WebSocketStatus connected={wsConnected} error={wsError} />
+              )}
             </div>
             <p className="text-foreground-muted font-body">{t('dashboard.subtitle')}</p>
           </div>
@@ -356,6 +383,7 @@ export default function DashboardPage() {
             prefix="$"
             decimals={4}
             color="text-gold"
+            trend={earnedTrend}
             locale={locale}
           />
           <StatCard
@@ -363,6 +391,7 @@ export default function DashboardPage() {
             label={t('dashboard.stats.totalQueries')}
             value={totalQueries}
             suffix={t('common.units.queries')}
+            trend={queriesTrend}
             locale={locale}
           />
           <StatCard
@@ -382,7 +411,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Charts row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 overflow-x-hidden">
           {/* Earnings area chart */}
           <div className="lg:col-span-2 glass-card p-6 min-w-0">
             <div className="flex items-center justify-between mb-6">
@@ -396,9 +425,12 @@ export default function DashboardPage() {
               </div>
               <TrendingUp className="w-5 h-5 text-gold" />
             </div>
-            <div className="h-[220px] w-full">
+            <div className="h-[220px] w-full overflow-x-hidden">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 5, right: 5, left: isMobile ? -16 : 0, bottom: 0 }}
+                >
                   <defs>
                     <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#C9A84C" stopOpacity={0.3} />
@@ -411,21 +443,24 @@ export default function DashboardPage() {
                     tick={{ fill: '#6B7280', fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
+                    minTickGap={isMobile ? 24 : 12}
                   />
                   <YAxis
                     tick={{ fill: '#6B7280', fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
                   />
-                  <Tooltip
-                    content={
-                      <ChartTooltip
-                        locale={locale}
-                        earnedLabel={t('dashboard.charts.earnedSeries')}
-                        queriesLabel={t('common.units.queries')}
-                      />
-                    }
-                  />
+                  {!isMobile && (
+                    <Tooltip
+                      content={
+                        <ChartTooltip
+                          locale={locale}
+                          earnedLabel={t('dashboard.charts.earnedSeries')}
+                          queriesLabel={t('common.units.queries')}
+                        />
+                      }
+                    />
+                  )}
                   <Area
                     type="monotone"
                     dataKey="earned"
@@ -452,30 +487,36 @@ export default function DashboardPage() {
               </div>
               <Activity className="w-5 h-5 text-gold" />
             </div>
-            <div className="h-[220px] w-full">
+            <div className="h-[220px] w-full overflow-x-hidden">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 5, right: 5, left: isMobile ? -16 : 0, bottom: 0 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                   <XAxis
                     dataKey="day"
                     tick={{ fill: '#6B7280', fontSize: 9 }}
                     axisLine={false}
                     tickLine={false}
+                    minTickGap={isMobile ? 24 : 12}
                   />
                   <YAxis
                     tick={{ fill: '#6B7280', fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
                   />
-                  <Tooltip
-                    content={
-                      <ChartTooltip
-                        locale={locale}
-                        earnedLabel={t('dashboard.charts.earnedSeries')}
-                        queriesLabel={t('common.units.queries')}
-                      />
-                    }
-                  />
+                  {!isMobile && (
+                    <Tooltip
+                      content={
+                        <ChartTooltip
+                          locale={locale}
+                          earnedLabel={t('dashboard.charts.earnedSeries')}
+                          queriesLabel={t('common.units.queries')}
+                        />
+                      }
+                    />
+                  )}
                   <Bar
                     dataKey="queries"
                     name={t('dashboard.charts.queriesSeries')}
@@ -620,7 +661,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-display font-bold text-gold">
-                          +${(tx.amount * 0.95).toFixed(4)}
+                          +${((tx.amount * 0.95)).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                         </p>
                         <p className="text-xs text-muted-2 font-body">
                           {formatTimeAgo(tx.timestamp, locale)}

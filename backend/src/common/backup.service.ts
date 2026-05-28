@@ -1,4 +1,4 @@
-import fs from 'fs';
+import { promises as fs, existsSync } from 'fs';
 import path from 'path';
 import { readStore } from './storage';
 
@@ -25,15 +25,14 @@ export class BackupService {
 
   constructor(config: BackupConfig) {
     this.config = config;
-    this.ensureBackupDirectory();
   }
 
   /**
    * Ensure backup directory exists
    */
-  private ensureBackupDirectory(): void {
-    if (!fs.existsSync(this.config.backupDir)) {
-      fs.mkdirSync(this.config.backupDir, { recursive: true });
+  private async ensureBackupDirectory(): Promise<void> {
+    if (!existsSync(this.config.backupDir)) {
+      await fs.mkdir(this.config.backupDir, { recursive: true });
       console.log(`[Backup] Created backup directory: ${this.config.backupDir}`);
     }
   }
@@ -43,6 +42,7 @@ export class BackupService {
    */
   async createBackup(): Promise<BackupMetadata> {
     try {
+      await this.ensureBackupDirectory();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `backup-${timestamp}.json`;
       const backupPath = path.join(this.config.backupDir, filename);
@@ -61,9 +61,9 @@ export class BackupService {
         data: store,
       };
 
-      fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2), 'utf-8');
+      await fs.writeFile(backupPath, JSON.stringify(backupData, null, 2), 'utf-8');
 
-      const stats = fs.statSync(backupPath);
+      const stats = await fs.stat(backupPath);
       const metadata: BackupMetadata = {
         timestamp: new Date().toISOString(),
         filename,
@@ -93,20 +93,28 @@ export class BackupService {
    */
   private async rotateBackups(): Promise<void> {
     try {
-      const files = fs.readdirSync(this.config.backupDir)
-        .filter(f => f.startsWith('backup-') && f.endsWith('.json'))
-        .map(f => ({
-          name: f,
-          path: path.join(this.config.backupDir, f),
-          mtime: fs.statSync(path.join(this.config.backupDir, f)).mtime,
-        }))
-        .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+      const filesList = await fs.readdir(this.config.backupDir);
+      const files = await Promise.all(
+        filesList
+          .filter(f => f.startsWith('backup-') && f.endsWith('.json'))
+          .map(async f => {
+            const filePath = path.join(this.config.backupDir, f);
+            const stats = await fs.stat(filePath);
+            return {
+              name: f,
+              path: filePath,
+              mtime: stats.mtime,
+            };
+          })
+      );
+      
+      files.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
 
       // Delete old backups beyond maxBackups
       if (files.length > this.config.maxBackups) {
         const toDelete = files.slice(this.config.maxBackups);
         for (const file of toDelete) {
-          fs.unlinkSync(file.path);
+          await fs.unlink(file.path);
           console.log(`[Backup] Rotated old backup: ${file.name}`);
         }
       }
@@ -119,14 +127,17 @@ export class BackupService {
   /**
    * List all available backups
    */
-  listBackups(): BackupMetadata[] {
+  async listBackups(): Promise<BackupMetadata[]> {
     try {
-      const files = fs.readdirSync(this.config.backupDir)
-        .filter(f => f.startsWith('backup-') && f.endsWith('.json'))
-        .map(f => {
+      await this.ensureBackupDirectory();
+      const filesList = await fs.readdir(this.config.backupDir);
+      const backupFiles = filesList.filter(f => f.startsWith('backup-') && f.endsWith('.json'));
+      
+      const backups = await Promise.all(
+        backupFiles.map(async f => {
           const filePath = path.join(this.config.backupDir, f);
-          const stats = fs.statSync(filePath);
-          const content = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+          const stats = await fs.stat(filePath);
+          const content = JSON.parse(await fs.readFile(filePath, 'utf-8'));
           
           return {
             timestamp: content.metadata?.timestamp || stats.mtime.toISOString(),
@@ -136,9 +147,9 @@ export class BackupService {
             transactionsCount: content.metadata?.transactionsCount || 0,
           };
         })
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      );
 
-      return files;
+      return backups.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[Backup] Failed to list backups: ${message}`);
@@ -153,11 +164,11 @@ export class BackupService {
     try {
       const backupPath = path.join(this.config.backupDir, filename);
       
-      if (!fs.existsSync(backupPath)) {
+      if (!existsSync(backupPath)) {
         throw new Error(`Backup file not found: ${filename}`);
       }
 
-      const backupContent = JSON.parse(fs.readFileSync(backupPath, 'utf-8'));
+      const backupContent = JSON.parse(await fs.readFile(backupPath, 'utf-8'));
       const dataPath = path.join(__dirname, '../../../data/datasets.json');
 
       // Create a safety backup before restoring
@@ -165,8 +176,8 @@ export class BackupService {
       const safetyPath = path.join(this.config.backupDir, safetyBackup);
       
       // Read current data and save as safety backup
-      if (fs.existsSync(dataPath)) {
-        const currentData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+      if (existsSync(dataPath)) {
+        const currentData = JSON.parse(await fs.readFile(dataPath, 'utf-8'));
         const safetyData = {
           metadata: {
             timestamp: new Date().toISOString(),
@@ -176,11 +187,11 @@ export class BackupService {
           },
           data: currentData,
         };
-        fs.writeFileSync(safetyPath, JSON.stringify(safetyData, null, 2), 'utf-8');
+        await fs.writeFile(safetyPath, JSON.stringify(safetyData, null, 2), 'utf-8');
       }
 
       // Restore the backup
-      fs.writeFileSync(dataPath, JSON.stringify(backupContent.data, null, 2), 'utf-8');
+      await fs.writeFile(dataPath, JSON.stringify(backupContent.data, null, 2), 'utf-8');
 
       console.log(`[Backup] Restored from backup: ${filename}`);
       console.log(`[Backup] Safety backup created: ${safetyBackup}`);
@@ -194,13 +205,13 @@ export class BackupService {
   /**
    * Get backup statistics
    */
-  getBackupStats(): {
+  async getBackupStats(): Promise<{
     totalBackups: number;
     totalSize: number;
     oldestBackup: string | null;
     newestBackup: string | null;
-  } {
-    const backups = this.listBackups();
+  }> {
+    const backups = await this.listBackups();
     
     return {
       totalBackups: backups.length,
@@ -221,3 +232,4 @@ export class BackupService {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   }
 }
+

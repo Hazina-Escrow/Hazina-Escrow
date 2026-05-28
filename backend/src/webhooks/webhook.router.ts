@@ -8,10 +8,12 @@ import {
   getWebhooksForSeller,
   removeWebhook,
   updateWebhook,
+  getTransactionByMemo,
 } from '../common/storage';
 import { validateBody } from '../common/validate';
-import { notifySeller } from './webhook.service';
+import { notifySeller, signPayload } from './webhook.service';
 import { requireApiKey } from '../common/auth.middleware';
+import { processPayment } from '../payments/payments.service';
 
 export const webhooksRouter = Router();
 
@@ -85,6 +87,62 @@ const updateWebhookSchema = z
       data.active !== undefined,
     { message: 'At least one of url, secret, events, or active must be provided' },
   );
+
+const paymentWebhookSchema = z.object({
+  txHash: z.string().min(1),
+  memo: z.string().min(1),
+});
+
+/**
+ * POST /api/webhooks/payment — receiving point for external payment notifications
+ * (e.g. from a Stellar network observer or payment processor)
+ */
+webhooksRouter.post('/payment', async (req: Request, res: Response) => {
+  const signature = req.headers['x-webhook-signature'];
+  if (!signature) {
+    return res.status(401).json({ error: 'Missing signature' });
+  }
+
+  const secret = process.env.PAYMENT_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error('[Webhook] PAYMENT_WEBHOOK_SECRET not set');
+    return res.status(500).json({ error: 'Webhook configuration error' });
+  }
+
+  const bodyString = JSON.stringify(req.body);
+  const expectedSignature = signPayload(bodyString, secret);
+
+  if (signature !== expectedSignature) {
+    console.warn('[Webhook] Invalid signature received');
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
+  try {
+    const { txHash, memo } = paymentWebhookSchema.parse(req.body);
+    const transaction = await getTransactionByMemo(memo);
+
+    if (!transaction) {
+      return res.status(404).json({ error: 'Transaction not found for memo' });
+    }
+
+    const result = await processPayment({
+      txHash,
+      datasetId: transaction.datasetId,
+      buyerQuestion: transaction.buyerQuery,
+      memo,
+    });
+
+    return res.json({
+      success: true,
+      message: 'Payment processed',
+      delivery: result.transaction.deliveryStatus,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Webhook] Payment processing failed: ${message}`);
+    return res.status(400).json({ error: message });
+  }
+});
 
 // POST /api/webhooks — register a new webhook
 webhooksRouter.post('/', requireApiKey, validateBody(createWebhookSchema), async (req: Request, res: Response) => {
@@ -172,4 +230,3 @@ webhooksRouter.patch('/:id', requireApiKey, validateBody(updateWebhookSchema), a
   const { secret: _secret, ...rest } = updated;
   return res.json({ success: true, webhook: rest });
 });
-

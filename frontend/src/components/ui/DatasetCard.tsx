@@ -48,7 +48,7 @@ export default function DatasetCard({ dataset, onBuy }: Props) {
            <>
              <img
                src={dataset.thumbnail || `https://source.unsplash.com/featured/?crypto,${dataset.type}`}
-               alt={dataset.name}
+               alt={`${dataset.name} dataset preview`}
                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-60 group-hover:opacity-80"
                onError={() => setImageError(true)}
              />
