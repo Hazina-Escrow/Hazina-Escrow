@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
+import { StrKey } from '@stellar/stellar-sdk';
 import {
   getAllDatasets,
   getDataset,
@@ -13,8 +14,6 @@ import { validateBody } from '../common/validate';
 import { sanitizeUserText } from '../common/sanitize';
 import { notifySeller } from '../webhooks/webhook.service';
 import { requireApiKey, requireSellerJwt } from '../common/auth.middleware';
-
-const STELLAR_ADDRESS_REGEX = /^G[A-Z2-7]{55}$/;
 const MAX_DATA_BYTES = 500 * 1024;
 const makeSanitizedTextField = (fieldName: string, maxLength: number) =>
   z
@@ -75,7 +74,7 @@ const createDatasetSchema = z.object({
   description: makeSanitizedTextField('description', 2000),
   type: makeSanitizedTextField('type', 100),
   pricePerQuery: z.coerce.number().finite().positive(),
-  sellerWallet: z.string().trim().regex(STELLAR_ADDRESS_REGEX, 'must be a valid Stellar G-address'),
+  sellerWallet: z.string().trim().refine(StrKey.isValidEd25519PublicKey, { message: 'Invalid Stellar address' }),
   data: dataField,
 });
 

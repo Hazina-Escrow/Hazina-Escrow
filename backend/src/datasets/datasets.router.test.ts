@@ -7,6 +7,14 @@ vi.mock('../webhooks/webhook.service', () => ({
   notifySeller: vi.fn(() => Promise.resolve()),
 }));
 
+const { mockIsValidStellarAddress } = vi.hoisted(() => ({
+  mockIsValidStellarAddress: vi.fn<[string], boolean>(),
+}));
+
+vi.mock('@stellar/stellar-sdk', () => ({
+  StrKey: { isValidEd25519PublicKey: mockIsValidStellarAddress },
+}));
+
 import { datasetsRouter } from './datasets.router';
 import { writeStore, type Dataset, type Store, type Transaction } from '../common/storage';
 
@@ -192,5 +200,80 @@ describe('datasets seller dashboard auth', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(403);
+  });
+});
+
+const VALID_WALLET = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+
+const validDatasetBody = {
+  name: 'Test Dataset',
+  description: 'A dataset for testing wallet validation',
+  type: 'trading-signals',
+  pricePerQuery: 1.5,
+  sellerWallet: VALID_WALLET,
+  data: { key: 'value' },
+};
+
+describe('wallet address validation on POST /api/datasets', () => {
+  let app: Express;
+
+  beforeEach(async () => {
+    app = makeApp();
+    await seedStore({ datasets: [], transactions: [], webhooks: [] });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('accepts a valid 56-char G-address and creates the dataset', async () => {
+    mockIsValidStellarAddress.mockReturnValue(true);
+
+    const res = await request(app).post('/api/datasets').send(validDatasetBody);
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.dataset.sellerWallet).toBe(VALID_WALLET);
+  });
+
+  it('rejects a wallet address that is too short', async () => {
+    mockIsValidStellarAddress.mockReturnValue(false);
+
+    const res = await request(app)
+      .post('/api/datasets')
+      .send({ ...validDatasetBody, sellerWallet: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFL' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Invalid Stellar address');
+  });
+
+  it('rejects a wallet address that does not start with G', async () => {
+    mockIsValidStellarAddress.mockReturnValue(false);
+
+    const res = await request(app)
+      .post('/api/datasets')
+      .send({ ...validDatasetBody, sellerWallet: 'XBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Invalid Stellar address');
+  });
+
+  it('rejects a wallet address that fails the Stellar SDK checksum check', async () => {
+    mockIsValidStellarAddress.mockReturnValue(false);
+
+    const res = await request(app)
+      .post('/api/datasets')
+      .send({ ...validDatasetBody, sellerWallet: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Invalid Stellar address');
+  });
+
+  it('calls StrKey.isValidEd25519PublicKey with the submitted wallet address', async () => {
+    mockIsValidStellarAddress.mockReturnValue(true);
+
+    await request(app).post('/api/datasets').send(validDatasetBody);
+
+    expect(mockIsValidStellarAddress).toHaveBeenCalledWith(VALID_WALLET);
   });
 });
