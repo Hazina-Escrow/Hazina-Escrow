@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AreaChart,
   Area,
@@ -20,18 +20,22 @@ import {
   DollarSign,
   Activity,
   ChevronRight,
+  Loader2,
 } from 'lucide-react';
 import { api, DatasetMeta, Transaction } from '../lib/api';
 import { useCountUp } from '../hooks/useCountUp';
 import { formatUSDC, formatTimeAgo, getTypeMeta, truncateAddress } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import {
+  Skeleton,
   StatCardSkeleton,
   TransactionRowSkeleton,
   ChartSkeleton,
 } from '../components/ui/SkeletonLoader';
 import clsx from 'clsx';
 import { useI18n } from '../i18n';
+import { useTransactionWebSocket } from '../hooks/useTransactionWebSocket';
+import { WebSocketStatus } from '../components/ui/WebSocketStatus';
 
 /* ── Animated stat card ── */
 function StatCard({
@@ -147,21 +151,55 @@ export default function DashboardPage() {
   const [datasets, setDatasets] = useState<DatasetMeta[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [isRefetching, setIsRefetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [walletFilter, setWalletFilter] = useState('');
+  const hasLoadedOnceRef = useRef(false);
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+
+  // WebSocket connection for real-time updates
+  const { connected: wsConnected, error: wsError } = useTransactionWebSocket(
+    {
+      datasetIds: datasets.map(d => d.id),
+      enabled: hasLoadedOnce,
+    },
+    {
+      onTransactionUpdate: () => {
+        // Refetch data when transaction updates arrive
+        setIsRefetching(true);
+        void loadDashboard();
+      },
+    }
+  );
+
+  const loadDashboard = async () => {
+  const loadDashboard = async () => {
+    if (hasLoadedOnceRef.current) {
+      setIsRefetching(true);
+    } else {
+      setLoading(true);
+    }
+    setFetchError(null);
+
+    try {
+      const [ds, txs] = await Promise.all([api.getDatasets(), api.getTransactions()]);
+
+      setDatasets(ds.data);
+      setTransactions(txs);
+      setHasLoadedOnce(true);
+      hasLoadedOnceRef.current = true;
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : t('dashboard.loadError'));
+    } finally {
+      setLoading(false);
+      setIsRefetching(false);
+    }
+  };
 
   useEffect(() => {
-    setLoading(true);
-    setFetchError(null);
-    Promise.all([api.getDatasets(), api.getTransactions()])
-      .then(([ds, txs]) => {
-        setDatasets(ds.data);
-        setTransactions(txs);
-      })
-      .catch(err => {
-        setFetchError(err instanceof Error ? err.message : t('dashboard.loadError'));
-      })
-      .finally(() => setLoading(false));
+    void loadDashboard();
   }, [t]);
 
   const totalEarned = datasets.reduce((s, d) => s + d.totalEarned, 0);
@@ -177,15 +215,15 @@ export default function DashboardPage() {
     ? datasets.filter(d => d.sellerWallet === walletFilter)
     : datasets;
 
-  if (loading) {
+  if (loading && !hasLoadedOnce) {
     return (
       <div className="min-h-screen pt-28 pb-20">
         <div className="max-w-7xl mx-auto px-4">
           {/* Header skeleton */}
           <div className="mb-10">
-            <div className="h-4 w-32 bg-surface-2/60 rounded mb-2 animate-pulse" />
-            <div className="h-10 w-64 bg-surface-2/60 rounded mb-2 animate-pulse" />
-            <div className="h-5 w-96 bg-surface-2/60 rounded animate-pulse" />
+            <Skeleton variant="text" width={128} height={16} className="mb-2" />
+            <Skeleton variant="text" width={256} height={40} className="mb-2" />
+            <Skeleton variant="text" width={384} height={20} />
           </div>
 
           {/* Stats row skeleton */}
@@ -196,7 +234,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Charts row skeleton */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 overflow-x-hidden">
             <div className="lg:col-span-2">
               <ChartSkeleton />
             </div>
@@ -209,7 +247,7 @@ export default function DashboardPage() {
               <div className="h-6 w-40 bg-surface-2/60 rounded mb-5 animate-pulse" />
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-20 bg-surface-2/40 rounded-xl animate-pulse" />
+                  <Skeleton key={i} variant="rounded" width="100%" height={80} />
                 ))}
               </div>
             </div>
@@ -227,7 +265,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (fetchError) {
+  if (fetchError && !hasLoadedOnce) {
     return (
       <div className="min-h-screen pt-28 flex items-center justify-center px-4">
         <div className="glass-card max-w-md w-full p-8 text-center">
@@ -256,9 +294,23 @@ export default function DashboardPage() {
             <p className="text-gold text-sm font-body font-medium tracking-widest uppercase mb-2">
               {t('dashboard.eyebrow')}
             </p>
-            <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground mb-2">
-              {t('dashboard.title')}
-            </h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground">
+                {t('dashboard.title')}
+              </h1>
+              {isRefetching && (
+                <span
+                  className="inline-flex items-center gap-2 rounded-full border border-gold/20 bg-gold/10 px-3 py-1 text-xs font-body font-medium text-gold"
+                  aria-live="polite"
+                >
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                  {t('dashboard.refreshing')}
+                </span>
+              )}
+              {hasLoadedOnce && (
+                <WebSocketStatus connected={wsConnected} error={wsError} />
+              )}
+            </div>
             <p className="text-foreground-muted font-body">{t('dashboard.subtitle')}</p>
           </div>
           <Link
@@ -336,7 +388,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Charts row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 overflow-x-hidden">
           {/* Earnings area chart */}
           <div className="lg:col-span-2 glass-card p-6 min-w-0">
             <div className="flex items-center justify-between mb-6">
@@ -350,9 +402,12 @@ export default function DashboardPage() {
               </div>
               <TrendingUp className="w-5 h-5 text-gold" />
             </div>
-            <div className="h-[220px] w-full">
+            <div className="h-[220px] w-full overflow-x-hidden">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 5, right: 5, left: isMobile ? -16 : 0, bottom: 0 }}
+                >
                   <defs>
                     <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#C9A84C" stopOpacity={0.3} />
@@ -365,21 +420,24 @@ export default function DashboardPage() {
                     tick={{ fill: '#6B7280', fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
+                    minTickGap={isMobile ? 24 : 12}
                   />
                   <YAxis
                     tick={{ fill: '#6B7280', fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
                   />
-                  <Tooltip
-                    content={
-                      <ChartTooltip
-                        locale={locale}
-                        earnedLabel={t('dashboard.charts.earnedSeries')}
-                        queriesLabel={t('common.units.queries')}
-                      />
-                    }
-                  />
+                  {!isMobile && (
+                    <Tooltip
+                      content={
+                        <ChartTooltip
+                          locale={locale}
+                          earnedLabel={t('dashboard.charts.earnedSeries')}
+                          queriesLabel={t('common.units.queries')}
+                        />
+                      }
+                    />
+                  )}
                   <Area
                     type="monotone"
                     dataKey="earned"
@@ -406,30 +464,36 @@ export default function DashboardPage() {
               </div>
               <Activity className="w-5 h-5 text-gold" />
             </div>
-            <div className="h-[220px] w-full">
+            <div className="h-[220px] w-full overflow-x-hidden">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 5, right: 5, left: isMobile ? -16 : 0, bottom: 0 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                   <XAxis
                     dataKey="day"
                     tick={{ fill: '#6B7280', fontSize: 9 }}
                     axisLine={false}
                     tickLine={false}
+                    minTickGap={isMobile ? 24 : 12}
                   />
                   <YAxis
                     tick={{ fill: '#6B7280', fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
                   />
-                  <Tooltip
-                    content={
-                      <ChartTooltip
-                        locale={locale}
-                        earnedLabel={t('dashboard.charts.earnedSeries')}
-                        queriesLabel={t('common.units.queries')}
-                      />
-                    }
-                  />
+                  {!isMobile && (
+                    <Tooltip
+                      content={
+                        <ChartTooltip
+                          locale={locale}
+                          earnedLabel={t('dashboard.charts.earnedSeries')}
+                          queriesLabel={t('common.units.queries')}
+                        />
+                      }
+                    />
+                  )}
                   <Bar
                     dataKey="queries"
                     name={t('dashboard.charts.queriesSeries')}
@@ -534,7 +598,14 @@ export default function DashboardPage() {
               <h3 className="font-display font-semibold text-foreground">
                 {t('dashboard.transactions.title')}
               </h3>
-              <Clock className="w-4 h-4 text-muted" />
+              {isRefetching ? (
+                <Loader2
+                  className="w-4 h-4 text-gold animate-spin"
+                  aria-label={t('dashboard.refreshing')}
+                />
+              ) : (
+                <Clock className="w-4 h-4 text-muted" />
+              )}
             </div>
             {recentTx.length === 0 ? (
               <div className="text-center py-8">
@@ -567,7 +638,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-display font-bold text-gold">
-                          +${(tx.amount * 0.95).toFixed(4)}
+                          +${((tx.amount * 0.95)).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                         </p>
                         <p className="text-xs text-muted-2 font-body">
                           {formatTimeAgo(tx.timestamp, locale)}

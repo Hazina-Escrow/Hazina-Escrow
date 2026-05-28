@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import {
@@ -20,6 +21,8 @@ import QueryModal from '../components/ui/QueryModal';
 import { DatasetCardSkeleton } from '../components/ui/SkeletonLoader';
 import clsx from 'clsx';
 import { useI18n } from '../i18n';
+import { useTransactionWebSocket } from '../hooks/useTransactionWebSocket';
+import { WebSocketStatus } from '../components/ui/WebSocketStatus';
 
 export default function MarketplacePage() {
   const { locale, t } = useI18n();
@@ -32,9 +35,16 @@ export default function MarketplacePage() {
   const [maxPrice, setMaxPrice] = useState('');
   const [minQueries, setMinQueries] = useState('');
   const [sort, setSort] = useState('popular');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pageSize = 20;
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const page = Number.isFinite(pageParam) && pageParam >= 1 ? pageParam : 1;
+  const setPage = (nextPage: number) => {
+    const updatedParams = new URLSearchParams(searchParams);
+    updatedParams.set('page', String(Math.max(1, Math.floor(nextPage))));
+    setSearchParams(updatedParams);
+  };
   const [selectedDataset, setSelectedDataset] = useState<DatasetMeta | null>(null);
-  const pageSize = 12;
 
   // Debounce: only update the query key 400 ms after the user stops typing.
   useEffect(() => {
@@ -65,9 +75,27 @@ export default function MarketplacePage() {
   const total = data?.total || 0;
   const totalPages = data?.totalPages || 1;
 
+  // WebSocket connection for real-time updates
+  const { connected: wsConnected, error: wsError } = useTransactionWebSocket(
+    {
+      datasetIds: datasets.map(d => d.id),
+      enabled: datasets.length > 0,
+    },
+    {
+      onDatasetQueried: () => {
+        // Refetch when new queries come in
+        refetch();
+      },
+    }
+  );
+
   useEffect(() => {
-    setPage(1);
-  }, [search, sort, selectedTypes, minPrice, maxPrice, minQueries]);
+    if (page !== 1) {
+      const updatedParams = new URLSearchParams(searchParams);
+      updatedParams.set('page', '1');
+      setSearchParams(updatedParams);
+    }
+  }, [search, sort, selectedTypes, minPrice, maxPrice, minQueries, page, searchParams, setSearchParams]);
 
   const currentPage = Math.min(page, totalPages);
 
@@ -106,6 +134,7 @@ export default function MarketplacePage() {
     setMinPrice('');
     setMaxPrice('');
     setMinQueries('');
+    setPage(1);
   };
 
   const sortOptions = [
@@ -136,9 +165,14 @@ export default function MarketplacePage() {
           <p className="text-gold text-sm font-body font-medium tracking-widest uppercase mb-2">
             {t('marketplace.eyebrow')}
           </p>
-          <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground mb-3">
-            {t('marketplace.title')}
-          </h1>
+          <div className="flex items-center gap-3 mb-3">
+            <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground">
+              {t('marketplace.title')}
+            </h1>
+            {datasets.length > 0 && (
+              <WebSocketStatus connected={wsConnected} error={wsError} />
+            )}
+          </div>
           <p className="text-foreground-muted font-body text-lg">{t('marketplace.subtitle')}</p>
         </div>
 

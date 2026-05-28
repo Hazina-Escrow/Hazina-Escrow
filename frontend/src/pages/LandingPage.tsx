@@ -20,17 +20,36 @@ import { DatasetCardSkeleton } from "../components/ui/SkeletonLoader";
 import clsx from "clsx";
 import { useI18n } from "../i18n";
 
+const PREFERS_REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+const PARTICLE_COUNT =
+  typeof window !== "undefined" && window.matchMedia(PREFERS_REDUCED_MOTION_QUERY).matches
+    ? 0
+    : 30;
+const PARTICLE_SIZE = 4;
+const PARTICLE_ANIMATION_MIN_DURATION = 6;
+const PARTICLE_ANIMATION_DURATION_RANGE = 6;
+const PARTICLE_ANIMATION_DELAY_MAX = 5;
+const PARTICLE_OPACITY_BASE = 0.3;
+const PARTICLE_OPACITY_VARIANCE = 0.5;
+const HERO_FADE_IN_DELAY_MS = 100;
+const FEATURED_DATASET_COUNT = 3;
+const ORBIT_DOT_DEGREES = [0, 60, 120, 180, 240, 300];
+const ORBIT_DOT_RADIUS = 130;
+const ORBIT_DOT_BASE_DURATION = 2;
+const ORBIT_DOT_STAGGER = 0.3;
+const ORBIT_DOT_SIZE = 3;
+
 function Particle({ style }: { style: React.CSSProperties }) {
   return (
     <div
       className="absolute rounded-full pointer-events-none"
       style={{
-        width: 4,
-        height: 4,
+        width: PARTICLE_SIZE,
+        height: PARTICLE_SIZE,
         background: "rgba(201,168,76,0.6)",
         boxShadow: "0 0 8px rgba(201,168,76,0.8)",
-        animation: `float ${6 + Math.random() * 6}s ease-in-out infinite`,
-        animationDelay: `${Math.random() * 5}s`,
+        animation: `float ${PARTICLE_ANIMATION_MIN_DURATION + Math.random() * PARTICLE_ANIMATION_DURATION_RANGE}s ease-in-out infinite`,
+        animationDelay: `${Math.random() * PARTICLE_ANIMATION_DELAY_MAX}s`,
         ...style,
       }}
     />
@@ -132,7 +151,7 @@ export default function LandingPage() {
     api
       .getDatasets()
       .then((ds) => {
-        setFeatured(ds.data.slice(0, 3));
+        setFeatured(ds.data.slice(0, FEATURED_DATASET_COUNT));
         setFeaturedError(null);
       })
       .catch((err: unknown) => {
@@ -141,17 +160,17 @@ export default function LandingPage() {
         );
       })
       .finally(() => setFeaturedLoading(false));
-    const timer = setTimeout(() => setLoaded(true), 100);
+    const timer = setTimeout(() => setLoaded(true), HERO_FADE_IN_DELAY_MS);
     return () => clearTimeout(timer);
   }, [retryCount]);
 
   // Generate particles positions once
-  const particles = Array.from({ length: 30 }, (_, i) => ({
+  const particles = Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
     key: i,
     style: {
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
-      opacity: 0.3 + Math.random() * 0.5,
+      opacity: PARTICLE_OPACITY_BASE + Math.random() * PARTICLE_OPACITY_VARIANCE,
     },
   }));
 
@@ -393,15 +412,15 @@ export default function LandingPage() {
                   </div>
                 </div>
                 {/* Orbiting dots */}
-                {[0, 60, 120, 180, 240, 300].map((deg, i) => (
+                {ORBIT_DOT_DEGREES.map((deg, i) => (
                   <div
                     key={i}
                     className="absolute w-3 h-3 rounded-full bg-gold/60"
                     style={{
-                      top: `calc(50% + ${Math.sin((deg * Math.PI) / 180) * 130}px - 6px)`,
-                      left: `calc(50% + ${Math.cos((deg * Math.PI) / 180) * 130}px - 6px)`,
+                      top: `calc(50% + ${Math.sin((deg * Math.PI) / 180) * ORBIT_DOT_RADIUS}px - ${ORBIT_DOT_SIZE + 2}px)`,
+                      left: `calc(50% + ${Math.cos((deg * Math.PI) / 180) * ORBIT_DOT_RADIUS}px - ${ORBIT_DOT_SIZE + 2}px)`,
                       boxShadow: "0 0 8px rgba(201,168,76,0.8)",
-                      animation: `pulseGold ${2 + i * 0.3}s ease-in-out infinite`,
+                      animation: `pulseGold ${ORBIT_DOT_BASE_DURATION + i * ORBIT_DOT_STAGGER}s ease-in-out infinite`,
                     }}
                   />
                 ))}
@@ -451,7 +470,7 @@ export default function LandingPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {featuredLoading
-                ? Array.from({ length: 3 }).map((_, i) => (
+                ? Array.from({ length: FEATURED_DATASET_COUNT }).map((_, i) => (
                     <DatasetCardSkeleton key={i} />
                   ))
                 : featured.map((ds) => (

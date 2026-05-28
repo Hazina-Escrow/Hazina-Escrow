@@ -1,9 +1,16 @@
 /* eslint-disable prefer-node-protocol,sonarjs/cognitive-complexity */
 import { promises as fs } from 'node:fs';
 import { resolve } from 'node:path';
-import db from './client';
-import { datasets, transactions } from './schema';
 import { eq } from 'drizzle-orm';
+import db from './client';
+import { datasets, transactions, datasetsSqlite, transactionsSqlite } from './schema';
+
+const isPostgres =
+  (process.env.DATABASE_URL ?? '').startsWith('postgres://') ||
+  (process.env.DATABASE_URL ?? '').startsWith('postgresql://');
+
+const datasetsTable = isPostgres ? datasets : datasetsSqlite;
+const transactionsTable = isPostgres ? transactions : transactionsSqlite;
 
 interface DatasetFromJSON {
   id: string;
@@ -36,8 +43,8 @@ async function seedDatasets(jsonData: any): Promise<void> {
   for (const dataset of jsonData.datasets as DatasetFromJSON[]) {
     const existing = await db
       .select()
-      .from(datasets)
-      .where(eq(datasets.id, dataset.id))
+      .from(datasetsTable as typeof datasets)
+      .where(eq((datasetsTable as typeof datasets).id, dataset.id))
       .limit(1);
 
     if (existing.length > 0) {
@@ -45,7 +52,7 @@ async function seedDatasets(jsonData: any): Promise<void> {
       continue;
     }
 
-    await db.insert(datasets).values({
+    await db.insert(datasetsTable as typeof datasets).values({
       id: dataset.id,
       name: dataset.name,
       description: dataset.description,
@@ -69,8 +76,8 @@ async function seedTransactions(jsonData: any): Promise<void> {
   for (const tx of jsonData.transactions as TransactionFromJSON[]) {
     const existing = await db
       .select()
-      .from(transactions)
-      .where(eq(transactions.txHash, tx.txHash))
+      .from(transactionsTable as typeof transactions)
+      .where(eq((transactionsTable as typeof transactions).txHash, tx.txHash))
       .limit(1);
 
     if (existing.length > 0) {
@@ -78,7 +85,7 @@ async function seedTransactions(jsonData: any): Promise<void> {
       continue;
     }
 
-    await db.insert(transactions).values({
+    await db.insert(transactionsTable as typeof transactions).values({
       id: tx.id,
       datasetId: tx.datasetId,
       txHash: tx.txHash,

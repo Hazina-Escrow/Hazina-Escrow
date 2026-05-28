@@ -89,3 +89,54 @@ describe('generateDataSummary', () => {
     );
   });
 });
+
+// ── Timeout tests ──────────────────────────────────────────────────────────
+describe('generateDataSummary timeout handling', () => {
+  const originalTimeout = process.env.ANTHROPIC_TIMEOUT_MS;
+
+  beforeEach(() => {
+    mockCreate.mockReset();
+    delete process.env.ANTHROPIC_TIMEOUT_MS;
+  });
+
+  afterEach(() => {
+    if (originalTimeout === undefined) delete process.env.ANTHROPIC_TIMEOUT_MS;
+    else process.env.ANTHROPIC_TIMEOUT_MS = originalTimeout;
+  });
+
+  it('throws AnthropicTimeoutError when SDK raises APITimeoutError', async () => {
+    // Simulate the Anthropic SDK throwing its own APITimeoutError
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    const timeoutErr = new Anthropic.APITimeoutError({
+      url: '/messages',
+      timeout: 60000,
+      headers: undefined,
+      error: undefined,
+    });
+    mockCreate.mockRejectedValue(timeoutErr);
+
+    const { AnthropicTimeoutError } = await import('./claude.service');
+
+    await expect(generateDataSummary({ rows: [1, 2, 3] })).rejects.toBeInstanceOf(
+      AnthropicTimeoutError,
+    );
+  });
+
+  it('AnthropicTimeoutError message is user-friendly', async () => {
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    const timeoutErr = new Anthropic.APITimeoutError({
+      url: '/messages',
+      timeout: 60000,
+      headers: undefined,
+      error: undefined,
+    });
+    mockCreate.mockRejectedValue(timeoutErr);
+
+    const { AnthropicTimeoutError } = await import('./claude.service');
+
+    const err = await generateDataSummary({ rows: [] }).catch(e => e);
+    expect(err).toBeInstanceOf(AnthropicTimeoutError);
+    expect(err.message).not.toContain('AbortError');
+    expect(err.message).toMatch(/AI assistant did not respond/i);
+  });
+});
