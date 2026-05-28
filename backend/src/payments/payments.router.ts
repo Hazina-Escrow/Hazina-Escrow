@@ -139,6 +139,8 @@ const verifyDemoSchema = z.object({
  *         description: Dataset not found
  */
 
+
+import { v4 as uuidv4 } from "uuid";
 // POST /api/query/:id — initiate query, returns 402 Payment Required
 paymentsRouter.post('/query/:id', async (req: Request, res: Response) => {
   const dataset = await getDataset(req.params.id);

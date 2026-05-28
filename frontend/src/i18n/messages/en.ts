@@ -98,6 +98,11 @@ export const en = {
       imageNotSupported: "Image not supported",
     },
   },
+  websocket: {
+    connected: 'Live',
+    disconnected: 'Offline',
+    error: 'Connection Error',
+  },
   nav: {
     marketplace: 'Marketplace',
     agent: 'AI Agent',
@@ -356,6 +361,15 @@ export const en = {
     loading: 'Researching...',
     errorTitle: 'Agent error',
     rateLimitError: 'Too many requests — please wait a moment before retrying.',
+    minLengthError: 'Query must be at least 5 characters.',
+    payAndResearch: 'Pay {amount} USDC & Research',
+    paidModeNote: 'Wallet connected — pay {amount} USDC for real on-chain research',
+    runDemoInstead: 'Run free demo',
+    payInstructions: 'Pay {amount} USDC with your wallet, then paste the transaction hash to run the research.',
+    payToAddress: 'Agent escrow address',
+    txReceived: 'Transaction hash received — confirm to run the research.',
+    txPending: 'Complete the payment in your wallet, then paste the transaction hash below.',
+    confirmAndResearch: 'Confirm & Research',
     result: {
       topOpportunity: 'Top Opportunity',
       reasoning: 'Reasoning',

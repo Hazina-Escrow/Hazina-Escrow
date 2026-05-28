@@ -594,7 +594,7 @@ export default function SellPage() {
                 { queries: 1000, label: t("sell.earnings.thousandQueries") },
               ].map(({ queries, label }) => {
                 const price = parseFloat(form.pricePerQuery) || 0;
-                const earned = (price * queries * 0.95).toFixed(2);
+                const earned = price * queries * 0.95;
                 return (
                   <div
                     key={queries}
@@ -604,7 +604,7 @@ export default function SellPage() {
                       {label}
                     </span>
                     <span className="font-body font-semibold text-gold text-sm">
-                      ${formatUSDC(Number(earned), locale)}
+                      ${formatUSDC(earned, locale)}
                     </span>
                   </div>
                 );

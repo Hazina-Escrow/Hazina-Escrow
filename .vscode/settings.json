@@ -1,3 +1,4 @@
 {
-  "typescript.autoClosingTags": false
+  "typescript.autoClosingTags": false,
+  "wake.compiler.solc.remappings": []
 }

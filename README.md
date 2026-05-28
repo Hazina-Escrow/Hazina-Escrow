@@ -593,3 +593,15 @@ Afrofuturist aesthetic — luxury dark theme inspired by the Kente cloth geometr
 | Body font | DM Sans |
 | Cards | Glass morphism with gold borders |
 | Patterns | Kente-inspired SVG geometry |
+
+
+---
+
+## API Versioning
+
+All backend HTTP routes are now served under /api/v1/.
+- The server still accepts requests to legacy /api/ paths and redirects them to /api/v1/ with a deprecation Warning header.
+- During the migration we updated the frontend and backend tests to use /api/v1/.
+
+If you're running locally, update any proxies or API clients to use /api/v1/.
+

@@ -34,6 +34,8 @@ import {
 } from '../components/ui/SkeletonLoader';
 import clsx from 'clsx';
 import { useI18n } from '../i18n';
+import { useTransactionWebSocket } from '../hooks/useTransactionWebSocket';
+import { WebSocketStatus } from '../components/ui/WebSocketStatus';
 
 /* ── Animated stat card ── */
 function StatCard({
@@ -157,48 +159,47 @@ export default function DashboardPage() {
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadDashboard = async () => {
-      if (hasLoadedOnceRef.current) {
+  // WebSocket connection for real-time updates
+  const { connected: wsConnected, error: wsError } = useTransactionWebSocket(
+    {
+      datasetIds: datasets.map(d => d.id),
+      enabled: hasLoadedOnce,
+    },
+    {
+      onTransactionUpdate: () => {
+        // Refetch data when transaction updates arrive
         setIsRefetching(true);
-      } else {
-        setLoading(true);
-      }
-      setFetchError(null);
+        void loadDashboard();
+      },
+    }
+  );
 
-      try {
-        const [ds, txs] = await Promise.all([api.getDatasets(), api.getTransactions()]);
-        if (cancelled) {
-          return;
-        }
+  const loadDashboard = async () => {
+  const loadDashboard = async () => {
+    if (hasLoadedOnceRef.current) {
+      setIsRefetching(true);
+    } else {
+      setLoading(true);
+    }
+    setFetchError(null);
 
-        setDatasets(ds.data);
-        setTransactions(txs);
-        setHasLoadedOnce(true);
-        hasLoadedOnceRef.current = true;
-      } catch (err) {
-        if (cancelled) {
-          return;
-        }
+    try {
+      const [ds, txs] = await Promise.all([api.getDatasets(), api.getTransactions()]);
 
-        setFetchError(err instanceof Error ? err.message : t('dashboard.loadError'));
-      } finally {
-        if (cancelled) {
-          return;
-        }
+      setDatasets(ds.data);
+      setTransactions(txs);
+      setHasLoadedOnce(true);
+      hasLoadedOnceRef.current = true;
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : t('dashboard.loadError'));
+    } finally {
+      setLoading(false);
+      setIsRefetching(false);
+    }
+  };
 
-        setLoading(false);
-        setIsRefetching(false);
-      }
-    };
-
+  useEffect(() => {
     void loadDashboard();
-
-    return () => {
-      cancelled = true;
-    };
   }, [t]);
 
   const totalEarned = datasets.reduce((s, d) => s + d.totalEarned, 0);
@@ -305,6 +306,9 @@ export default function DashboardPage() {
                   <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
                   {t('dashboard.refreshing')}
                 </span>
+              )}
+              {hasLoadedOnce && (
+                <WebSocketStatus connected={wsConnected} error={wsError} />
               )}
             </div>
             <p className="text-foreground-muted font-body">{t('dashboard.subtitle')}</p>
@@ -634,7 +638,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-display font-bold text-gold">
-                          +${(tx.amount * 0.95).toFixed(4)}
+                          +${((tx.amount * 0.95)).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                         </p>
                         <p className="text-xs text-muted-2 font-body">
                           {formatTimeAgo(tx.timestamp, locale)}

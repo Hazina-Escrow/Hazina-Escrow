@@ -21,6 +21,8 @@ import QueryModal from '../components/ui/QueryModal';
 import { DatasetCardSkeleton } from '../components/ui/SkeletonLoader';
 import clsx from 'clsx';
 import { useI18n } from '../i18n';
+import { useTransactionWebSocket } from '../hooks/useTransactionWebSocket';
+import { WebSocketStatus } from '../components/ui/WebSocketStatus';
 
 export default function MarketplacePage() {
   const { locale, t } = useI18n();
@@ -72,6 +74,20 @@ export default function MarketplacePage() {
   const datasets = data?.data || [];
   const total = data?.total || 0;
   const totalPages = data?.totalPages || 1;
+
+  // WebSocket connection for real-time updates
+  const { connected: wsConnected, error: wsError } = useTransactionWebSocket(
+    {
+      datasetIds: datasets.map(d => d.id),
+      enabled: datasets.length > 0,
+    },
+    {
+      onDatasetQueried: () => {
+        // Refetch when new queries come in
+        refetch();
+      },
+    }
+  );
 
   useEffect(() => {
     if (page !== 1) {
@@ -149,9 +165,14 @@ export default function MarketplacePage() {
           <p className="text-gold text-sm font-body font-medium tracking-widest uppercase mb-2">
             {t('marketplace.eyebrow')}
           </p>
-          <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground mb-3">
-            {t('marketplace.title')}
-          </h1>
+          <div className="flex items-center gap-3 mb-3">
+            <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground">
+              {t('marketplace.title')}
+            </h1>
+            {datasets.length > 0 && (
+              <WebSocketStatus connected={wsConnected} error={wsError} />
+            )}
+          </div>
           <p className="text-foreground-muted font-body text-lg">{t('marketplace.subtitle')}</p>
         </div>
 
