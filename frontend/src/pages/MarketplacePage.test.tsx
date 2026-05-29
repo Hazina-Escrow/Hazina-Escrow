@@ -13,6 +13,14 @@ vi.mock('../lib/api', () => ({
   },
 }));
 
+vi.mock('../hooks/useTransactionWebSocket', () => ({
+  useTransactionWebSocket: vi.fn(() => ({
+    connected: false,
+    error: null,
+    subscribe: vi.fn(),
+  })),
+}));
+
 type DatasetResponse = Awaited<ReturnType<typeof api.getDatasets>>;
 
 const defaultDatasets: DatasetResponse = {
@@ -60,12 +68,29 @@ describe('MarketplacePage', () => {
     vi.mocked(api.getDatasets).mockResolvedValue(defaultDatasets);
   });
 
+  it('shows dataset skeletons while the initial fetch is pending', async () => {
+    let resolveDatasets!: (value: DatasetResponse) => void;
+    vi.mocked(api.getDatasets).mockReturnValue(
+      new Promise<DatasetResponse>(resolve => {
+        resolveDatasets = resolve;
+      }),
+    );
+
+    const { container } = renderMarketplacePage(['/marketplace']);
+
+    expect(container.querySelectorAll('.glass-card.p-6.animate-pulse')).toHaveLength(8);
+
+    resolveDatasets(defaultDatasets);
+
+    await screen.findByText('Test Dataset 1');
+  });
+
   it('initializes pagination from the URL query string', async () => {
     renderMarketplacePage(['/marketplace?page=2']);
 
     await waitFor(() => {
       expect(api.getDatasets).toHaveBeenCalledWith(
-        expect.objectContaining({ page: 2, limit: 20 }),
+        expect.objectContaining({ page: 2, limit: 12 }),
       );
     });
   });
@@ -80,10 +105,10 @@ describe('MarketplacePage', () => {
     const nextButton = await screen.findByRole('button', { name: /Next/i });
     fireEvent.click(nextButton);
 
-    await waitFor(() => {
+      await waitFor(() => {
       expect(window.location.search).toContain('page=2');
       expect(api.getDatasets).toHaveBeenLastCalledWith(
-        expect.objectContaining({ page: 2, limit: 20 }),
+        expect.objectContaining({ page: 2, limit: 12 }),
       );
     });
   });

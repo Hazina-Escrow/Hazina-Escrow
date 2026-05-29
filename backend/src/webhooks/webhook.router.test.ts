@@ -66,7 +66,7 @@ describe("Webhook Router", () => {
     }
     // Seed clean store
     const clean: Store = { datasets: [], transactions: [], webhooks: [], payoutFailures: [] };
-    writeStore(clean);
+    await writeStore(clean);
 
     app = express();
     app.use(express.json());
@@ -346,4 +346,3 @@ describe("Webhook Router", () => {
     });
   });
 });
-

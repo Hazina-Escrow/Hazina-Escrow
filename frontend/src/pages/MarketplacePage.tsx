@@ -14,11 +14,11 @@ import {
   Check,
   RotateCcw,
 } from 'lucide-react';
-import { api, DatasetMeta } from '../lib/api';
+import { api, DatasetMeta, PaginatedDatasets } from '../lib/api';
 import { DATA_TYPE_META } from '../lib/utils';
 import DatasetCard from '../components/ui/DatasetCard';
 import QueryModal from '../components/ui/QueryModal';
-import { DatasetCardSkeleton } from '../components/ui/SkeletonLoader';
+import { DatasetCardSkeleton, Skeleton } from '../components/ui/SkeletonLoader';
 import clsx from 'clsx';
 import { useI18n } from '../i18n';
 import { useTransactionWebSocket } from '../hooks/useTransactionWebSocket';
@@ -39,7 +39,6 @@ export default function MarketplacePage() {
   const [minQueries, setMinQueries] = useState(searchParams.get('minQueries') || '');
   const [sort, setSort] = useState(searchParams.get('sort') || 'popular');
   
-  const pageSize = 20;
   const pageParam = parseInt(searchParams.get('page') || '1', 10);
   const page = Number.isFinite(pageParam) && pageParam >= 1 ? pageParam : 1;
   const setPage = (nextPage: number) => {
@@ -107,7 +106,7 @@ export default function MarketplacePage() {
     data,
     isLoading: loading,
     refetch,
-  } = useQuery({
+  } = useQuery<PaginatedDatasets>({
     queryKey: ['datasets', page, search, selectedTypes, minPrice, maxPrice, minQueries, sort],
     queryFn: () =>
       api.getDatasets({
@@ -377,34 +376,37 @@ export default function MarketplacePage() {
         </div>
 
         {/* Results count */}
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-foreground-muted font-body">
-            {loading ? (
-              t('common.labels.loading')
-            ) : (
-              <>
-                {t('marketplace.pagination.showing', {
-                  start: pageStart.toLocaleString(locale),
-                  end: pageEnd.toLocaleString(locale),
-                  total: total.toLocaleString(locale),
-                })}
-              </>
-            )}
-          </p>
-          {!loading && datasets.length > 0 && (
+        <div className="flex items-center justify-between gap-4 mb-6" aria-busy={loading}>
+          {loading ? (
+            <div className="space-y-2">
+              <Skeleton variant="text" width={240} height={16} />
+              <Skeleton variant="text" width={160} height={12} />
+            </div>
+          ) : (
+            <p className="text-sm text-foreground-muted font-body">
+              {t('marketplace.pagination.showing', {
+                start: pageStart.toLocaleString(locale),
+                end: pageEnd.toLocaleString(locale),
+                total: total.toLocaleString(locale),
+              })}
+            </p>
+          )}
+          {loading ? (
+            <Skeleton variant="text" width={88} height={14} />
+          ) : datasets.length > 0 ? (
             <p className="text-sm text-foreground-muted font-body">
               {t('marketplace.pagination.page', {
                 current: currentPage.toLocaleString(locale),
                 total: totalPages.toLocaleString(locale),
               })}
             </p>
-          )}
+          ) : null}
         </div>
 
         {/* Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" aria-busy="true">
+            {Array.from({ length: 8 }).map((_, i) => (
               <DatasetCardSkeleton key={i} />
             ))}
           </div>

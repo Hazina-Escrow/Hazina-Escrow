@@ -1,7 +1,15 @@
-import { promises as fs, existsSync } from 'fs';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 const DATA_PATH = path.join(__dirname, '../../../data/datasets.json');
+const DATA_DIR = path.dirname(DATA_PATH);
+const LOCK_PATH = `${DATA_PATH}.lock`;
+const LOCK_STALE_MS = 30_000;
+
+let writeQueue: Promise<void> = Promise.resolve();
+
+// In-memory guard for tx hashes that are currently being persisted.
+const pendingTxHashes = new Set<string>();
 
 const DATA_PATH = process.env.DATA_PATH || path.resolve(process.cwd(), 'data/datasets.json');
 
@@ -79,13 +87,6 @@ export interface WebhookSubscription {
   createdAt: string;
 }
 
-export interface Store {
-  datasets: Dataset[];
-  transactions: Transaction[];
-  webhooks: WebhookSubscription[];
-  payoutFailures: PayoutFailure[];
-}
-
 export type PayoutFailureStatus = 'pending_retry' | 'manual_review_needed' | 'paid';
 
 export interface PayoutFailure {
@@ -103,50 +104,136 @@ export interface PayoutFailure {
   updatedAt: string;
 }
 
-function ensureStore(): Store {
-  if (!fs.existsSync(DATA_PATH)) {
-    const empty: Store = { datasets: [], transactions: [], webhooks: [], payoutFailures: [] };
-    fs.writeFileSync(DATA_PATH, JSON.stringify(empty, null, 2), 'utf-8');
-// Serialize all mutations to prevent concurrent read-modify-write data loss
-let mutationQueue: Promise<void> = Promise.resolve();
+export interface Store {
+  datasets: Dataset[];
+  transactions: Transaction[];
+  webhooks: WebhookSubscription[];
+  payoutFailures: PayoutFailure[];
+}
 
-// In-memory set to block replay of hashes that are mid-flight (not yet persisted)
-const pendingTxHashes = new Set<string>();
+function createEmptyStore(): Store {
+  return {
+    datasets: [],
+    transactions: [],
+    webhooks: [],
+    payoutFailures: [],
+  };
+}
 
+function normalizeStore(store: Partial<Store>): Store {
+  return {
+    datasets: Array.isArray(store.datasets) ? store.datasets : [],
+    transactions: Array.isArray(store.transactions) ? store.transactions : [],
+    webhooks: Array.isArray(store.webhooks) ? store.webhooks : [],
+    payoutFailures: Array.isArray(store.payoutFailures) ? store.payoutFailures : [],
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
 async function readRaw(): Promise<Store> {
   if (!existsSync(DATA_PATH)) {
     const empty: Store = { datasets: [], transactions: [], webhooks: [] };
     await writeStoreFile(empty);
     return empty;
   }
+}
+
+async function readStoreInternal(): Promise<Store> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  if (!(await fileExists(DATA_PATH))) {
+    return createEmptyStore();
+  }
+
   const raw = await fs.readFile(DATA_PATH, 'utf-8');
+  if (!raw.trim()) {
+    return createEmptyStore();
+  }
+
   const parsed = JSON.parse(raw) as Partial<Store>;
-  if (!parsed.webhooks) parsed.webhooks = [];
-  if (!parsed.payoutFailures) parsed.payoutFailures = [];
-  return parsed as Store;
+  return normalizeStore(parsed);
 }
 
-export async function readStore(): Promise<Store> {
-  return readRaw();
+async function persistStore(store: Store): Promise<void> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  const serialized = JSON.stringify(store, null, 2);
+  const tempPath = `${DATA_PATH}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+  await fs.writeFile(tempPath, serialized, 'utf-8');
+  await fs.rename(tempPath, DATA_PATH);
 }
 
+type LockHandle = Awaited<ReturnType<typeof fs.open>>;
+
+async function acquireLock(timeoutMs = 10_000): Promise<LockHandle> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  const startedAt = Date.now();
+
+  for (;;) {
+    try {
+      return await fs.open(LOCK_PATH, 'wx');
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code !== 'EEXIST') {
+        throw error;
+      }
+
+      try {
+        const stats = await fs.stat(LOCK_PATH);
+        if (Date.now() - stats.mtimeMs > LOCK_STALE_MS) {
+          await fs.unlink(LOCK_PATH).catch(() => {});
+          continue;
+        }
+      } catch (statError) {
+        if ((statError as NodeJS.ErrnoException).code === 'ENOENT') {
+          continue;
+        }
+      }
+
+      if (Date.now() - startedAt > timeoutMs) {
+        throw new Error(`Timed out waiting for storage lock: ${LOCK_PATH}`);
+      }
+
+      await sleep(25);
+    }
+  }
+}
+
+async function releaseLock(handle: LockHandle): Promise<void> {
+  try {
+    await handle.close();
+  } finally {
+    await fs.unlink(LOCK_PATH).catch(() => {});
+  }
+}
+
+function enqueueWrite<T>(task: () => Promise<T>): Promise<T> {
+  const run = writeQueue.then(task, task);
+  writeQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
 export async function writeStore(store: Store): Promise<void> {
   // Enqueue so concurrent external writes don't interleave
   mutationQueue = mutationQueue.then(() => writeStoreFile(store));
   return mutationQueue;
 }
 
-// Runs fn inside the serialized queue. fn receives the current store and must
-// return the (possibly mutated) store to persist, plus an optional result.
-function enqueue<T>(fn: (store: Store) => Promise<[Store, T]>): Promise<T> {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: unknown) => void;
-  const result = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  mutationQueue = mutationQueue.then(async () => {
+async function withLockedWrite<T>(task: () => Promise<T>): Promise<T> {
+  return enqueueWrite(async () => {
+    const lock = await acquireLock();
     try {
+      return await task();
+    } finally {
+      await releaseLock(lock);
       const store = await readRaw();
       const [updated, value] = await fn(store);
       await writeStoreFile(updated);
@@ -155,11 +242,30 @@ function enqueue<T>(fn: (store: Store) => Promise<[Store, T]>): Promise<T> {
       reject(err);
     }
   });
-  return result;
+}
+
+async function updateStore<T>(mutator: (store: Store) => Promise<T> | T): Promise<T> {
+  return withLockedWrite(async () => {
+    const store = await readStoreInternal();
+    const result = await mutator(store);
+    await persistStore(store);
+    return result;
+  });
+}
+
+export async function readStore(): Promise<Store> {
+  await writeQueue;
+  return readStoreInternal();
+}
+
+export async function writeStore(store: Store): Promise<void> {
+  return withLockedWrite(async () => {
+    await persistStore(store);
+  });
 }
 
 export async function getDataset(id: string): Promise<Dataset | undefined> {
-  return (await readStore()).datasets.find(d => d.id === id);
+  return (await readStore()).datasets.find(dataset => dataset.id === id);
 }
 
 export async function getAllDatasets(): Promise<Dataset[]> {
@@ -170,33 +276,39 @@ export async function updateDataset(
   id: string,
   updates: Partial<Dataset>,
 ): Promise<Dataset | null> {
-  return enqueue(async store => {
-    const idx = store.datasets.findIndex(d => d.id === id);
-    if (idx === -1) return [store, null];
-    store.datasets[idx] = { ...store.datasets[idx], ...updates };
-    return [store, store.datasets[idx]];
+  return updateStore(async store => {
+    const index = store.datasets.findIndex(dataset => dataset.id === id);
+    if (index === -1) {
+      return null;
+    }
+
+    store.datasets[index] = { ...store.datasets[index], ...updates };
+    return store.datasets[index];
   });
 }
 
 export async function addDataset(dataset: Dataset): Promise<void> {
-  return enqueue(async store => {
+  return updateStore(async store => {
     store.datasets.push(dataset);
-    return [store, undefined];
   });
 }
 
 export async function addTransaction(tx: Transaction): Promise<void> {
-  if (tx.txHash) pendingTxHashes.add(tx.txHash);
-  return enqueue(async store => {
+  if (tx.txHash) {
+    pendingTxHashes.add(tx.txHash);
+  }
+
+  return updateStore(async store => {
     store.transactions.push(tx);
-    return [store, undefined];
   }).finally(() => {
-    if (tx.txHash) pendingTxHashes.delete(tx.txHash);
+    if (tx.txHash) {
+      pendingTxHashes.delete(tx.txHash);
+    }
   });
 }
 
 export async function getTransactionByHash(txHash: string): Promise<Transaction | undefined> {
-  return (await readStore()).transactions.find(tx => tx.txHash === txHash);
+  return (await readStore()).transactions.find(transaction => transaction.txHash === txHash);
 }
 
 /**
@@ -211,18 +323,21 @@ export async function getAgentJobByTxHash(txHash: string): Promise<Transaction |
 }
 
 export async function getTransactionByMemo(memo: string): Promise<Transaction | undefined> {
-  return (await readStore()).transactions.find(tx => tx.memo === memo);
+  return (await readStore()).transactions.find(transaction => transaction.memo === memo);
 }
 
 export async function updateTransactionByHash(
   txHash: string,
   updates: Partial<Transaction>,
 ): Promise<Transaction | null> {
-  return enqueue(async store => {
-    const idx = store.transactions.findIndex(tx => tx.txHash === txHash);
-    if (idx === -1) return [store, null];
-    store.transactions[idx] = { ...store.transactions[idx], ...updates };
-    return [store, store.transactions[idx]];
+  return updateStore(async store => {
+    const index = store.transactions.findIndex(transaction => transaction.txHash === txHash);
+    if (index === -1) {
+      return null;
+    }
+
+    store.transactions[index] = { ...store.transactions[index], ...updates };
+    return store.transactions[index];
   });
 }
 
@@ -230,11 +345,14 @@ export async function updateTransactionByMemo(
   memo: string,
   updates: Partial<Transaction>,
 ): Promise<Transaction | null> {
-  return enqueue(async store => {
-    const idx = store.transactions.findIndex(tx => tx.memo === memo);
-    if (idx === -1) return [store, null];
-    store.transactions[idx] = { ...store.transactions[idx], ...updates };
-    return [store, store.transactions[idx]];
+  return updateStore(async store => {
+    const index = store.transactions.findIndex(transaction => transaction.memo === memo);
+    if (index === -1) {
+      return null;
+    }
+
+    store.transactions[index] = { ...store.transactions[index], ...updates };
+    return store.transactions[index];
   });
 }
 
@@ -245,7 +363,7 @@ export async function getTransactions(
 ): Promise<Transaction[]> {
   const store = await readStore();
   let transactions = datasetId
-    ? store.transactions.filter(t => t.datasetId === datasetId)
+    ? store.transactions.filter(transaction => transaction.datasetId === datasetId)
     : store.transactions;
 
   if (offset !== undefined && offset > 0) {
@@ -262,50 +380,56 @@ export async function getTransactions(
 export async function getTransactionsCount(datasetId?: string): Promise<number> {
   const store = await readStore();
   return datasetId
-    ? store.transactions.filter(t => t.datasetId === datasetId).length
+    ? store.transactions.filter(transaction => transaction.datasetId === datasetId).length
     : store.transactions.length;
 }
 
 export async function getFailedDeliveryTransactions(): Promise<Transaction[]> {
   const store = await readStore();
-  return store.transactions.filter(tx => tx.deliveryStatus === 'failed');
+  return store.transactions.filter(transaction => transaction.deliveryStatus === 'failed');
 }
 
 export async function txHashUsed(txHash: string): Promise<boolean> {
-  if (!txHash) return false;
-  if (pendingTxHashes.has(txHash)) return true;
-  return (await readStore()).transactions.some(t => t.txHash === txHash);
-}
+  if (!txHash) {
+    return false;
+  }
 
-/* ------------------------------------------------------------------ */
-/*  Webhooks                                                           */
-/* ------------------------------------------------------------------ */
+  if (pendingTxHashes.has(txHash)) {
+    return true;
+  }
+
+  return (await readStore()).transactions.some(transaction => transaction.txHash === txHash);
+}
 
 export async function getAllWebhooks(): Promise<WebhookSubscription[]> {
   return (await readStore()).webhooks;
 }
 
 export async function getWebhooksForSeller(sellerWallet: string): Promise<WebhookSubscription[]> {
-  return (await readStore()).webhooks.filter(w => w.sellerWallet === sellerWallet && w.active);
+  return (await readStore()).webhooks.filter(
+    webhook => webhook.sellerWallet === sellerWallet && webhook.active,
+  );
 }
 
 export async function getWebhookById(id: string): Promise<WebhookSubscription | undefined> {
-  return (await readStore()).webhooks.find(w => w.id === id);
+  return (await readStore()).webhooks.find(webhook => webhook.id === id);
 }
 
 export async function addWebhook(webhook: WebhookSubscription): Promise<void> {
-  return enqueue(async store => {
+  return updateStore(async store => {
     store.webhooks.push(webhook);
-    return [store, undefined];
   });
 }
 
 export async function removeWebhook(id: string): Promise<boolean> {
-  return enqueue(async store => {
-    const idx = store.webhooks.findIndex(w => w.id === id);
-    if (idx === -1) return [store, false];
-    store.webhooks.splice(idx, 1);
-    return [store, true];
+  return updateStore(async store => {
+    const index = store.webhooks.findIndex(webhook => webhook.id === id);
+    if (index === -1) {
+      return false;
+    }
+
+    store.webhooks.splice(index, 1);
+    return true;
   });
 }
 
@@ -313,48 +437,58 @@ export async function updateWebhook(
   id: string,
   updates: Partial<WebhookSubscription>,
 ): Promise<WebhookSubscription | null> {
-  return enqueue(async store => {
-    const idx = store.webhooks.findIndex(w => w.id === id);
-    if (idx === -1) return [store, null];
-    store.webhooks[idx] = { ...store.webhooks[idx], ...updates };
-    return [store, store.webhooks[idx]];
+  return updateStore(async store => {
+    const index = store.webhooks.findIndex(webhook => webhook.id === id);
+    if (index === -1) {
+      return null;
+    }
+
+    store.webhooks[index] = { ...store.webhooks[index], ...updates };
+    return store.webhooks[index];
   });
 }
 
-export function addPayoutFailure(payoutFailure: PayoutFailure): void {
-  const store = readStore();
-  store.payoutFailures.push(payoutFailure);
-  writeStore(store);
+export async function addPayoutFailure(payoutFailure: PayoutFailure): Promise<void> {
+  return updateStore(async store => {
+    store.payoutFailures.push(payoutFailure);
+  });
 }
 
-export function getPayoutFailureByBuyerTxHash(buyerTxHash: string): PayoutFailure | undefined {
-  return readStore().payoutFailures.find((f) => f.buyerTxHash === buyerTxHash);
+export async function getPayoutFailureByBuyerTxHash(
+  buyerTxHash: string,
+): Promise<PayoutFailure | undefined> {
+  return (await readStore()).payoutFailures.find(failure => failure.buyerTxHash === buyerTxHash);
 }
 
-export function updatePayoutFailure(
+export async function updatePayoutFailure(
   id: string,
   updates: Partial<PayoutFailure>,
-): PayoutFailure | null {
-  const store = readStore();
-  const idx = store.payoutFailures.findIndex((f) => f.id === id);
-  if (idx === -1) return null;
-  store.payoutFailures[idx] = { ...store.payoutFailures[idx], ...updates };
-  writeStore(store);
-  return store.payoutFailures[idx];
+): Promise<PayoutFailure | null> {
+  return updateStore(async store => {
+    const index = store.payoutFailures.findIndex(failure => failure.id === id);
+    if (index === -1) {
+      return null;
+    }
+
+    store.payoutFailures[index] = { ...store.payoutFailures[index], ...updates };
+    return store.payoutFailures[index];
+  });
 }
 
-export function getPayoutFailuresByStatus(status: PayoutFailureStatus): PayoutFailure[] {
-  return readStore().payoutFailures.filter((f) => f.status === status);
+export async function getPayoutFailuresByStatus(
+  status: PayoutFailureStatus,
+): Promise<PayoutFailure[]> {
+  return (await readStore()).payoutFailures.filter(failure => failure.status === status);
 }
 
-export function getPendingPayoutFailures(nowIso: string): PayoutFailure[] {
+export async function getPendingPayoutFailures(nowIso: string): Promise<PayoutFailure[]> {
   const now = new Date(nowIso).getTime();
-  return readStore().payoutFailures.filter(
-    (f) => f.status === 'pending_retry' && new Date(f.nextRetryAt).getTime() <= now,
+  return (await readStore()).payoutFailures.filter(
+    failure => failure.status === 'pending_retry' && new Date(failure.nextRetryAt).getTime() <= now,
   );
 }
 
 export async function getUnpaidTransactions(): Promise<Transaction[]> {
   const store = await readStore();
-  return store.transactions.filter(t => t.sellerPaid === false);
+  return store.transactions.filter(transaction => transaction.sellerPaid === false);
 }

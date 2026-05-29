@@ -146,7 +146,7 @@ describeSocket('payments and agent integration routes', () => {
   });
 
   it('POST /api/verify/:id rejects replayed transaction hash', async () => {
-    writeStore({
+    await writeStore({
       ...BASE_STORE,
       transactions: [
         {
@@ -197,7 +197,7 @@ describeSocket('payments and agent integration routes', () => {
   });
 
   it('GET /api/admin/payouts/stuck lists manual review payouts', async () => {
-    writeStore({
+    await writeStore({
       ...BASE_STORE,
       payoutFailures: [
         {
@@ -246,4 +246,3 @@ describeSocket('payments and agent integration routes', () => {
     expect(r.body.report.topOpportunity.protocol).toBeDefined();
   });
 });
-

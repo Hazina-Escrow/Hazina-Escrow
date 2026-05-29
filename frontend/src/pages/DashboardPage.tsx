@@ -22,7 +22,7 @@ import {
   ChevronRight,
   Loader2,
 } from 'lucide-react';
-import { api, DatasetMeta, Transaction } from '../lib/api';
+import { api, DatasetMeta, PaginatedDatasets, Transaction } from '../lib/api';
 import { useCountUp } from '../hooks/useCountUp';
 import { formatUSDC, getTypeMeta, truncateAddress } from '../lib/utils';
 import { Link } from 'react-router-dom';
@@ -187,7 +187,10 @@ export default function DashboardPage() {
       setFetchError(null);
 
       try {
-        const [ds, txs] = await Promise.all([api.getDatasets(), api.getTransactions()]);
+        const [ds, txs] = (await Promise.all([api.getDatasets(), api.getTransactions()])) as [
+          PaginatedDatasets,
+          Transaction[],
+        ];
         if (cancelled) {
           return;
         }
@@ -250,6 +253,13 @@ export default function DashboardPage() {
   const filteredDatasets = walletFilter
     ? datasets.filter(d => d.sellerWallet === walletFilter)
     : datasets;
+  const { connected: wsConnected, error: wsError } = useTransactionWebSocket(
+    {
+      datasetIds: datasets.map((d: DatasetMeta) => d.id),
+      enabled: datasets.length > 0,
+    },
+    {},
+  );
 
   if (loading && !hasLoadedOnce) {
     return (
@@ -280,7 +290,7 @@ export default function DashboardPage() {
           {/* Bottom section skeleton */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="glass-card p-6">
-              <div className="h-6 w-40 bg-surface-2/60 rounded mb-5 animate-pulse" />
+              <Skeleton variant="text" width={160} height={24} className="mb-5" />
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <Skeleton key={i} variant="rounded" width="100%" height={80} />
@@ -288,7 +298,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="glass-card p-6">
-              <div className="h-6 w-48 bg-surface-2/60 rounded mb-5 animate-pulse" />
+              <Skeleton variant="text" width={192} height={24} className="mb-5" />
               <div className="space-y-2">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <TransactionRowSkeleton key={i} />

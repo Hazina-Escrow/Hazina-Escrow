@@ -107,4 +107,28 @@ describe('storage', () => {
     expect(txs).toHaveLength(25);
     expect(new Set(txs.map((tx) => tx.txHash)).size).toBe(25);
   });
+
+  it('keeps reads and writes consistent under concurrent load', async () => {
+    const writes = Array.from({ length: 10 }, (_, idx) =>
+      addTransaction({
+        id: `tx-mixed-${idx}`,
+        datasetId: FIXTURE_DATASET.id,
+        txHash: `mixed-hash-${idx}`,
+        amount: 0.02,
+        timestamp: new Date().toISOString(),
+      }),
+    );
+
+    const reads = Array.from({ length: 10 }, () => readStore());
+    const snapshots = await Promise.all(reads);
+    await Promise.all(writes);
+
+    for (const snapshot of snapshots) {
+      expect(snapshot.datasets.some((dataset) => dataset.id === FIXTURE_DATASET.id)).toBe(true);
+    }
+
+    const finalStore = await readStore();
+    expect(finalStore.transactions).toHaveLength(10);
+    expect(new Set(finalStore.transactions.map((tx) => tx.txHash)).size).toBe(10);
+  });
 });

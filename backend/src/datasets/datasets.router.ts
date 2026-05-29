@@ -13,11 +13,16 @@ import type { Dataset } from '../common/storage';
 import { validateBody } from '../common/validate';
 import { sanitizeUserText } from '../common/sanitize';
 import { notifySeller } from '../webhooks/webhook.service';
+<<<<<<< fullstack/262-266-267-268-core-improvements
+import { requireSellerMutationAuth, requireSellerJwt } from '../common/auth.middleware';
+const MAX_DATA_BYTES = 500 * 1024;
+=======
 import { requireApiKey } from '../common/auth.middleware';
 
 const STELLAR_ADDRESS_REGEX = /^G[A-Z2-7]{55}$/;
 const MAX_DATA_KB = 500;
 const MAX_DATA_BYTES = MAX_DATA_KB * 1024;
+>>>>>>> main
 const makeSanitizedTextField = (fieldName: string, maxLength: number) =>
   z
     .string()
@@ -523,7 +528,7 @@ datasetsRouter.get('/:id/transactions', requireSellerJwt, async (req: Request, r
  */
 datasetsRouter.post(
   '/',
-  requireApiKey,
+  requireSellerMutationAuth,
   validateBody(createDatasetSchema),
   async (req: Request, res: Response) => {
     const { name, description, type, pricePerQuery, sellerWallet, data } = req.body as z.infer<

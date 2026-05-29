@@ -13,7 +13,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { api, AgentJob, AgentInfo } from '../lib/api';
-import { AgentResultSkeleton } from '../components/ui/SkeletonLoader';
+import { AgentResultSkeleton, Skeleton } from '../components/ui/SkeletonLoader';
 import { launchStellarWalletProvider } from '../lib/stellarWallets';
 import type { StellarWalletProvider } from '../lib/stellarWallets';
 import clsx from 'clsx';
@@ -58,6 +58,7 @@ export default function AgentPage() {
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [agentInfo, setAgentInfo] = useState<AgentInfo['agent'] | null>(null);
+  const [agentInfoLoading, setAgentInfoLoading] = useState(true);
   const [walletAddress, setWalletAddress] = useState<string | null>(() => readConnectedWallet());
   const [paying, setPaying] = useState(false);
   const [txHash, setTxHash] = useState('');
@@ -67,6 +68,7 @@ export default function AgentPage() {
   // Load the agent fee / escrow wallet for the real payment path.
   useEffect(() => {
     let active = true;
+    setAgentInfoLoading(true);
     api
       .agentInfo()
       .then((res) => {
@@ -74,6 +76,9 @@ export default function AgentPage() {
       })
       .catch(() => {
         /* fee strip is static; demo path still works without agent info */
+      })
+      .finally(() => {
+        if (active) setAgentInfoLoading(false);
       });
     return () => {
       active = false;
@@ -220,19 +225,27 @@ export default function AgentPage() {
         </div>
 
         {/* How it works strip */}
-        <div className="glass-card p-5 mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { icon: DollarSign, label: t("agent.strip.youPay"), value: '1 USDC' },
-            { icon: Activity, label: t("agent.strip.datasetsQueried"), value: t("agent.strip.sellersValue") },
-            { icon: Zap, label: t("agent.strip.agentSpends"), value: '0.14 USDC' },
-            { icon: ShieldCheck, label: t("agent.strip.protocol"), value: 'Stellar x402' },
-          ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="flex flex-col items-center text-center gap-1">
-              <Icon className="w-4 h-4 text-gold mb-1" />
-              <p className="text-xs font-body text-foreground-muted">{label}</p>
-              <p className="text-sm font-body font-semibold text-foreground">{value}</p>
-            </div>
-          ))}
+        <div className="glass-card p-5 mb-8 grid grid-cols-2 md:grid-cols-4 gap-4" aria-busy={agentInfoLoading}>
+          {agentInfoLoading
+            ? Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="flex flex-col items-center text-center gap-1">
+                  <Skeleton variant="circular" width={16} height={16} className="mb-1" />
+                  <Skeleton variant="text" width="70%" height={12} />
+                  <Skeleton variant="text" width="55%" height={14} />
+                </div>
+              ))
+            : [
+                { icon: DollarSign, label: t("agent.strip.youPay"), value: '1 USDC' },
+                { icon: Activity, label: t("agent.strip.datasetsQueried"), value: t("agent.strip.sellersValue") },
+                { icon: Zap, label: t("agent.strip.agentSpends"), value: '0.14 USDC' },
+                { icon: ShieldCheck, label: t("agent.strip.protocol"), value: 'Stellar x402' },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex flex-col items-center text-center gap-1">
+                  <Icon className="w-4 h-4 text-gold mb-1" />
+                  <p className="text-xs font-body text-foreground-muted">{label}</p>
+                  <p className="text-sm font-body font-semibold text-foreground">{value}</p>
+                </div>
+              ))}
         </div>
 
         {/* Query input */}

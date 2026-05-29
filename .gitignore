@@ -22,3 +22,19 @@ issue.md
 pr.md
 
 .claude
+
+# Terraform - ignore local state, locks, and runtime files
+# Local state files can contain sensitive values (API keys, secrets). Ensure these are not committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+terraform.tfvars
+terraform.tfvars.json
+.terraform.tfstate.lock.info
+.terraform.lock.hcl

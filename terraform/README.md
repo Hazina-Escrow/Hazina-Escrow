@@ -38,6 +38,12 @@ This directory contains Terraform scripts to deploy the Hazina Escrow project on
    cors_allowed_origins = "https://app.example.com,https://admin.example.com"
    ```
 
+Important security notes:
+
+- Do NOT commit `terraform.tfvars`, `*.tfstate`, or any files under `.terraform/` to version control. These files can contain sensitive values (API keys, private keys, wallet secrets).
+- Instead of local state, configure a remote backend (recommended options: Terraform Cloud, AWS S3 with DynamoDB locking, or GCS) so state is stored securely and can be shared among collaborators.
+- If you believe any secret has been committed previously, rotate the secret immediately and consider removing it from git history.
+
 3. **Plan the deployment**:
 
    ```bash
