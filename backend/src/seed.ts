@@ -20,7 +20,7 @@ const generateStellarAddress = () => {
 
 const seed = async () => {
   const clean = process.argv.includes('--clean');
-  console.log(
+  logger.info(
     `Starting seeding... ${clean ? '(Cleaning existing data)' : '(Appending to existing data)'}`,
   );
 
@@ -32,7 +32,7 @@ const seed = async () => {
   const numDatasets = 25;
   const newDatasets: Dataset[] = [];
 
-  console.log(`Generating ${numDatasets} datasets...`);
+  logger.info(`Generating ${numDatasets} datasets...`);
   for (let i = 0; i < numDatasets; i++) {
     const id = `ds-${uuidv4()}`;
     const name =
@@ -80,7 +80,7 @@ const seed = async () => {
 
   // Generate Transactions
   const numTransactions = 150;
-  console.log(`Generating ${numTransactions} transactions...`);
+  logger.info(`Generating ${numTransactions} transactions...`);
   for (let i = 0; i < numTransactions; i++) {
     const dataset = faker.helpers.arrayElement(store.datasets);
     const tx: Transaction = {
@@ -98,9 +98,10 @@ const seed = async () => {
   }
 
   await writeStore(store);
-  console.log(
+  logger.info(
     `Seeding complete! Total in store: ${store.datasets.length} datasets, ${store.transactions.length} transactions.`,
   );
 };
 
-seed().catch(console.error);
+seed().catch(logger.error);
+\nimport { logger } from './lib/logger';

@@ -204,7 +204,8 @@ export async function verifyStellarPayment(params: VerifyParams): Promise<Verify
     }
     // Log the full SDK error server-side but never forward it to the client —
     // Stellar errors can contain sequence numbers, account IDs, and other internals.
-    console.error('[Stellar] Unexpected Horizon error:', err);
+    logger.error('[Stellar] Unexpected Horizon error:', err);
     throw new Error('Stellar network error — please try again shortly');
   }
 }
+\nimport { logger } from '../lib/logger';

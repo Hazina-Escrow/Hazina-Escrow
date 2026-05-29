@@ -151,7 +151,7 @@ async function _executeResearch(
   for (const seller of SELLER_TYPES) {
     const dataset = allDatasets.find(d => d.type === seller.type);
     if (!dataset) {
-      console.warn(`[Agent] No dataset found for type: ${seller.type}`);
+      logger.warn(`[Agent] No dataset found for type: ${seller.type}`);
       collectedData[seller.role] = {};
       continue;
     }
@@ -161,12 +161,12 @@ async function _executeResearch(
     if (demo) {
       // Demo: simulate payment, read data directly
       txHash = `demo-${seller.type}-${Date.now()}`;
-      console.log(
+      logger.info(
         `[Agent][Demo] Simulating payment of ${dataset.pricePerQuery} USDC → ${dataset.sellerWallet} for ${dataset.name}`,
       );
     } else {
       // Real: send USDC from agent wallet → seller wallet
-      console.log(
+      logger.info(
         `[Agent] Paying ${dataset.pricePerQuery} USDC → ${dataset.sellerWallet} for ${dataset.name}`,
       );
       const payment = await sendUsdcPayment({
@@ -289,3 +289,4 @@ async function _executeResearch(
     timestamp: new Date().toISOString(),
   };
 }
+\nimport { logger } from '../lib/logger';

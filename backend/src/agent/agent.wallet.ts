@@ -170,5 +170,6 @@ export function validateAgentWallet(): void {
   }
 
   // Safe to log — publicKey is the on-chain address, not secret key material.
-  console.log(`[AgentWallet] Wallet ready. Public key: ${publicKey}`);
+  logger.info(`[AgentWallet] Wallet ready. Public key: ${publicKey}`);
 }
+\nimport { logger } from '../lib/logger';

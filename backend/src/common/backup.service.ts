@@ -34,7 +34,7 @@ export class BackupService {
   private async ensureBackupDirectory(): Promise<void> {
     if (!existsSync(this.config.backupDir)) {
       await fs.mkdir(this.config.backupDir, { recursive: true });
-      console.log(`[Backup] Created backup directory: ${this.config.backupDir}`);
+      logger.info(`[Backup] Created backup directory: ${this.config.backupDir}`);
     }
   }
 
@@ -82,7 +82,7 @@ export class BackupService {
         transactionsCount,
       };
 
-      console.log(
+      logger.info(
         `[Backup] Created backup: ${filename} (${this.formatBytes(stats.size)}, ` +
         `${datasetsCount} datasets, ${transactionsCount} transactions)`,
       );
@@ -91,7 +91,7 @@ export class BackupService {
       return metadata;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[Backup] Failed to create backup: ${message}`);
+      logger.error(`[Backup] Failed to create backup: ${message}`);
       throw error;
     }
   }
@@ -123,12 +123,12 @@ export class BackupService {
         const toDelete = files.slice(this.config.maxBackups);
         for (const file of toDelete) {
           await fs.unlink(file.path);
-          console.log(`[Backup] Rotated old backup: ${file.name}`);
+          logger.info(`[Backup] Rotated old backup: ${file.name}`);
         }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[Backup] Failed to rotate backups: ${message}`);
+      logger.error(`[Backup] Failed to rotate backups: ${message}`);
     }
   }
 
@@ -160,7 +160,7 @@ export class BackupService {
       return backups.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[Backup] Failed to list backups: ${message}`);
+      logger.error(`[Backup] Failed to list backups: ${message}`);
       return [];
     }
   }
@@ -200,11 +200,11 @@ export class BackupService {
       // Restore the backup
       await fs.writeFile(DATA_PATH, JSON.stringify(backupContent.data, null, 2), 'utf-8');
 
-      console.log(`[Backup] Restored from backup: ${filename}`);
-      console.log(`[Backup] Safety backup created: ${safetyBackup}`);
+      logger.info(`[Backup] Restored from backup: ${filename}`);
+      logger.info(`[Backup] Safety backup created: ${safetyBackup}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[Backup] Failed to restore backup: ${message}`);
+      logger.error(`[Backup] Failed to restore backup: ${message}`);
       throw error;
     }
   }
@@ -240,3 +240,4 @@ export class BackupService {
   }
 }
 
+\nimport { logger } from '../lib/logger';

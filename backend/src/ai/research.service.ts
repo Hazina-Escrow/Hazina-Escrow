@@ -135,7 +135,7 @@ Respond ONLY with valid JSON in this exact shape (no markdown fences):
     }
 
     // Retry with stricter prompt
-    console.warn('[synthesizeResearch] Initial parse failed, retrying with stricter prompt');
+    logger.warn('[synthesizeResearch] Initial parse failed, retrying with stricter prompt');
 
     const stricterPrompt = `${prompt}
 
@@ -194,3 +194,4 @@ export function parseBudget(query: string): number {
   }
   return 500; // default
 }
+\nimport { logger } from '../lib/logger';

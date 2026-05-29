@@ -33,9 +33,9 @@ export class MarketService {
       return data[coinId]?.usd ?? null;
     } catch (error) {
       if (error instanceof CircuitBreakerOpenError) {
-        console.warn(`[MarketService] ${error.message} — returning null for getPrice`);
+        logger.warn(`[MarketService] ${error.message} — returning null for getPrice`);
       } else {
-        console.error('[MarketService] getPrice error:', error);
+        logger.error('[MarketService] getPrice error:', error);
       }
       return null;
     }
@@ -86,9 +86,10 @@ export class MarketService {
       };
     } catch (error) {
       if (error instanceof CircuitBreakerOpenError) {
-        console.warn(`[MarketService] ${error.message} — returning null for getMarketMetrics`);
+        logger.warn(`[MarketService] ${error.message} — returning null for getMarketMetrics`);
       }
       return null;
     }
   }
 }
+\nimport { logger } from '../lib/logger';

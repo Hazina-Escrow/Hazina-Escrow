@@ -49,7 +49,7 @@ async function seedDatasets(jsonData: Record<string, unknown>): Promise<void> {
       .limit(1);
 
     if (existing.length > 0) {
-      console.log(`⊘ Dataset already exists: ${dataset.id}`);
+      logger.info(`⊘ Dataset already exists: ${dataset.id}`);
       continue;
     }
 
@@ -66,7 +66,7 @@ async function seedDatasets(jsonData: Record<string, unknown>): Promise<void> {
       totalEarned: dataset.totalEarned.toString(),
       createdAt: dataset.createdAt,
     });
-    console.log(`✓ Inserted dataset: ${dataset.id}`);
+    logger.info(`✓ Inserted dataset: ${dataset.id}`);
   }
 }
 
@@ -84,7 +84,7 @@ async function seedTransactions(jsonData: Record<string, unknown>): Promise<void
       .limit(1);
 
     if (existing.length > 0) {
-      console.log(`⊘ Transaction already exists: ${tx.txHash}`);
+      logger.info(`⊘ Transaction already exists: ${tx.txHash}`);
       continue;
     }
 
@@ -98,7 +98,7 @@ async function seedTransactions(jsonData: Record<string, unknown>): Promise<void
       aiSummary: tx.aiSummary || null,
       timestamp: tx.timestamp,
     });
-    console.log(`✓ Inserted transaction: ${tx.txHash}`);
+    logger.info(`✓ Inserted transaction: ${tx.txHash}`);
   }
 }
 
@@ -108,17 +108,18 @@ async function seed(): Promise<void> {
     const fileContent = await fs.readFile(dataPath, 'utf-8');
     const jsonData = JSON.parse(fileContent);
 
-    console.log('Seeding database...');
+    logger.info('Seeding database...');
 
     await seedDatasets(jsonData);
     await seedTransactions(jsonData);
 
-    console.log('Seeding complete!');
+    logger.info('Seeding complete!');
     process.exit(0);
   } catch (error) {
-    console.error('Seed error:', error);
+    logger.error('Seed error:', error);
     process.exit(1);
   }
 }
 
 seed();
+\nimport { logger } from '../lib/logger';

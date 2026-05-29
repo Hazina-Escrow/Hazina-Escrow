@@ -143,7 +143,8 @@ export function scheduleRetrySweep(delayMs = 1_000): void {
   }
   retryTimer = setTimeout(() => {
     runDuePayoutRetries().catch((err) => {
-      console.error('[Escrow] payout retry sweep failed:', err);
+      logger.error('[Escrow] payout retry sweep failed:', err);
     });
   }, delayMs);
 }
+\nimport { logger } from '../lib/logger';

@@ -334,7 +334,7 @@ export async function processPayment(params: {
 
     return response;
   } catch (deliveryErr) {
-    console.error('[Escrow] Delivery failed — queued for retry:', deliveryErr);
+    logger.error('[Escrow] Delivery failed — queued for retry:', deliveryErr);
     domainMetrics.paymentVerified({
       datasetType: dataset.type,
       mode: 'real',
@@ -349,3 +349,4 @@ export async function processPayment(params: {
     });
   }
 }
+\nimport { logger } from '../lib/logger';
