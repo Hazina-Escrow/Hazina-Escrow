@@ -234,6 +234,7 @@ export const es: EnglishMessages = {
       listingLiveBody: '{name} ya está en el marketplace.',
       listingLiveRevenue:
         'Los compradores pueden consultarlo por {price} USDC cada vez. El 95 % va directo a tu wallet Stellar.',
+      draftRestored: 'Borrador restaurado desde tu última sesión',
     },
     eyebrow: 'Gana pasivamente',
     title: 'Publica tus datos',
