@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AreaChart,
   Area,
@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { api, DatasetMeta, Transaction } from '../lib/api';
 import { useCountUp } from '../hooks/useCountUp';
-import { formatUSDC, formatTimeAgo, getTypeMeta, truncateAddress } from '../lib/utils';
+import { formatUSDC, getTypeMeta, truncateAddress } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import {
   Skeleton,
@@ -78,9 +78,7 @@ function StatCard({
                   : 'text-red-400 bg-red-400/10',
             )}
           >
-            {trendValid && (
-              <ArrowUpRight className={clsx('w-3 h-3', trend < 0 && 'rotate-180')} />
-            )}
+            {trendValid && <ArrowUpRight className={clsx('w-3 h-3', trend < 0 && 'rotate-180')} />}
             {trendValid ? `${Math.abs(trend).toFixed(1)}%` : '—'}
           </span>
         )}
@@ -168,7 +166,14 @@ export default function DashboardPage() {
   const [isRefetching, setIsRefetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [walletFilter, setWalletFilter] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
   const hasLoadedOnceRef = useRef(false);
+  const websocketOptions = useMemo(() => ({ enabled: hasLoadedOnce }), [hasLoadedOnce]);
+  const websocketCallbacks = useMemo(() => ({}), []);
+  const { connected: wsConnected, error: wsError } = useTransactionWebSocket(
+    websocketOptions,
+    websocketCallbacks,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -198,12 +203,10 @@ export default function DashboardPage() {
 
         setFetchError(err instanceof Error ? err.message : t('dashboard.loadError'));
       } finally {
-        if (cancelled) {
-          return;
+        if (!cancelled) {
+          setLoading(false);
+          setIsRefetching(false);
         }
-
-        setLoading(false);
-        setIsRefetching(false);
       }
     };
 
@@ -213,6 +216,18 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, [t]);
+
+  useEffect(() => {
+    const mobileQuery = window.matchMedia('(max-width: 640px)');
+    const handleMobileChange = () => setIsMobile(mobileQuery.matches);
+
+    handleMobileChange();
+    mobileQuery.addEventListener('change', handleMobileChange);
+
+    return () => {
+      mobileQuery.removeEventListener('change', handleMobileChange);
+    };
+  }, []);
 
   const totalEarned = datasets.reduce((s, d) => s + d.totalEarned, 0);
   const totalQueries = datasets.reduce((s, d) => s + d.queriesServed, 0);
@@ -328,9 +343,7 @@ export default function DashboardPage() {
                   {t('dashboard.refreshing')}
                 </span>
               )}
-              {hasLoadedOnce && (
-                <WebSocketStatus connected={wsConnected} error={wsError} />
-              )}
+              {hasLoadedOnce && <WebSocketStatus connected={wsConnected} error={wsError} />}
             </div>
             <p className="text-foreground-muted font-body">{t('dashboard.subtitle')}</p>
           </div>
@@ -661,10 +674,16 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-display font-bold text-gold">
-                          +${((tx.amount * 0.95)).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                          +$
+                          {(tx.amount * 0.95).toLocaleString(locale, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          })}
                         </p>
                         <p className="text-xs text-muted-2 font-body">
-                          {formatTimeAgo(tx.timestamp, locale)}
+                          {new Date(tx.timestamp).toLocaleDateString(locale, {
+                            dateStyle: 'medium',
+                          })}
                         </p>
                       </div>
                     </div>
