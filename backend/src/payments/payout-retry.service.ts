@@ -19,12 +19,14 @@ function getRetryDelayMs(retryCount: number): number | null {
   return RETRY_BACKOFF_MS[retryCount] ?? null;
 }
 
-export function getManualReviewPayouts(): PayoutFailure[] {
+export async function getManualReviewPayouts(): Promise<PayoutFailure[]> {
   return getPayoutFailuresByStatus('manual_review_needed');
 }
 
-export function getPayoutStatusByBuyerTxHash(buyerTxHash: string): PayoutFailureStatus | null {
-  return getPayoutFailureByBuyerTxHash(buyerTxHash)?.status ?? null;
+export async function getPayoutStatusByBuyerTxHash(
+  buyerTxHash: string,
+): Promise<PayoutFailureStatus | null> {
+  return (await getPayoutFailureByBuyerTxHash(buyerTxHash))?.status ?? null;
 }
 
 export async function recordPayoutFailure(params: {
@@ -34,10 +36,10 @@ export async function recordPayoutFailure(params: {
   intendedAmount: number;
   error: string;
 }): Promise<PayoutFailure> {
-  const existing = getPayoutFailureByBuyerTxHash(params.buyerTxHash);
+  const existing = await getPayoutFailureByBuyerTxHash(params.buyerTxHash);
   const nowIso = new Date().toISOString();
   if (existing) {
-    const updated = updatePayoutFailure(existing.id, {
+    const updated = await updatePayoutFailure(existing.id, {
       status: 'pending_retry',
       lastError: params.error,
       updatedAt: nowIso,
@@ -61,7 +63,7 @@ export async function recordPayoutFailure(params: {
     updatedAt: nowIso,
   };
 
-  addPayoutFailure(failure);
+  await addPayoutFailure(failure);
   notifySeller(params.sellerWallet, 'payment.received', {
     delayed: true,
     reason: params.error,
@@ -80,7 +82,7 @@ async function attemptRetry(failure: PayoutFailure): Promise<void> {
       memo: `hazina-retry-${failure.datasetId.slice(0, 8)}`,
     });
 
-    updatePayoutFailure(failure.id, {
+    await updatePayoutFailure(failure.id, {
       status: 'paid',
       sellerTxHash: payment.txHash,
       updatedAt: new Date().toISOString(),
@@ -99,7 +101,7 @@ async function attemptRetry(failure: PayoutFailure): Promise<void> {
     const now = Date.now();
 
     if (nextDelayMs === null || retryCount >= MANUAL_REVIEW_RETRY_COUNT) {
-      updatePayoutFailure(failure.id, {
+      await updatePayoutFailure(failure.id, {
         retryCount,
         status: 'manual_review_needed',
         lastError: err instanceof Error ? err.message : String(err),
@@ -114,7 +116,7 @@ async function attemptRetry(failure: PayoutFailure): Promise<void> {
       return;
     }
 
-    updatePayoutFailure(failure.id, {
+    await updatePayoutFailure(failure.id, {
       retryCount,
       status: 'pending_retry',
       nextRetryAt: new Date(now + nextDelayMs).toISOString(),
@@ -125,7 +127,7 @@ async function attemptRetry(failure: PayoutFailure): Promise<void> {
 }
 
 export async function runDuePayoutRetries(): Promise<number> {
-  const due = getPendingPayoutFailures(new Date().toISOString());
+  const due = await getPendingPayoutFailures(new Date().toISOString());
   for (const failure of due) {
     await attemptRetry(failure);
   }

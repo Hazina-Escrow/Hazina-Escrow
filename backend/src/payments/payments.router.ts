@@ -302,9 +302,9 @@ paymentsRouter.post(
       });
 
 // GET /api/admin/payouts/stuck — list payouts requiring manual review
-paymentsRouter.get("/admin/payouts/stuck", requireAdminKey, (_req: Request, res: Response) => {
+paymentsRouter.get('/admin/payouts/stuck', requireAdminKey, async (_req: Request, res: Response) => {
   return res.json({
-    payouts: getManualReviewPayouts(),
+    payouts: await getManualReviewPayouts(),
   });
 });
 
