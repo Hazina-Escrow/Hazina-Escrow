@@ -28,7 +28,7 @@ function makeBearerMiddleware(envVar: string, label: string) {
       if (process.env.NODE_ENV === 'production') {
         return res.status(503).json({ error: `Server misconfigured: ${envVar} is not set` });
       }
-      console.warn(`[auth] ${envVar} not set — skipping ${label} check in non-production`);
+      logger.warn(`[auth] ${envVar} not set — skipping ${label} check in non-production`);
       return next();
     }
 
@@ -216,3 +216,4 @@ export function requireSellerJwt(req: Request, res: Response, next: NextFunction
   req.sellerAuth = claims;
   next();
 }
+\nimport { logger } from '../lib/logger';

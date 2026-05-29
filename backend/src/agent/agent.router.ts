@@ -170,7 +170,7 @@ agentRouter.post('/research', validateBody(researchSchema), async (req: Request,
   }
 
   try {
-    console.log(`[Agent] New research job: "${query}"`);
+    logger.info(`[Agent] New research job: "${query}"`);
     const result = await runResearchAgent(query, txHash);
 
     // Idempotency hit — this txHash was already processed successfully.
@@ -219,7 +219,7 @@ agentRouter.post('/research', validateBody(researchSchema), async (req: Request,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Research agent error';
-    console.error('[Agent] Error:', err);
+    logger.error('[Agent] Error:', err);
 
     // Track job failure
     const reason = message.includes('Payment verification failed')
@@ -255,7 +255,7 @@ agentRouter.post(
     const { query } = req.body as z.infer<typeof researchDemoSchema>;
 
     try {
-      console.log(`[Agent][Demo] New research job: "${query}"`);
+      logger.info(`[Agent][Demo] New research job: "${query}"`);
       const job = await runResearchAgentDemo(query);
 
     return res.json({
@@ -287,7 +287,8 @@ agentRouter.post(
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Research agent error';
-    console.error('[Agent][Demo] Error:', err);
+    logger.error('[Agent][Demo] Error:', err);
     return res.status(500).json({ error: message });
   }
 });
+\nimport { logger } from '../lib/logger';

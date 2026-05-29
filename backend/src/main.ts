@@ -8,7 +8,7 @@ initializeSentry();
 
 import 'express-async-errors';
 import express, { Request, Response, NextFunction } from 'express';
-import pino = require('pino');
+import { logger } from './lib/logger';
 import { randomUUID } from 'crypto';
 import cors from 'cors';
 import path from 'path';
@@ -42,52 +42,7 @@ import { createCorsOptions } from './common/cors';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const isProduction = process.env.NODE_ENV === 'production';
-const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-  redact: {
-    // SECURITY: Any of these keys appearing anywhere in a structured log
-    // object will be replaced with '[REDACTED]' before the record is shipped
-    // to Datadog or written to stdout. Add new secret env-var names here.
-    paths: [
-      'req.headers.authorization',
-      'req.headers.cookie',
-      'headers.authorization',
-      'headers.cookie',
-      // Stellar / wallet secrets
-      'AGENT_WALLET_SECRET',
-      'ESCROW_SECRET',
-      '*.AGENT_WALLET_SECRET',
-      '*.ESCROW_SECRET',
-      // API / auth secrets
-      'API_KEY',
-      'ADMIN_API_KEY',
-      'SELLER_JWT_SECRET',
-      '*.API_KEY',
-      '*.ADMIN_API_KEY',
-      '*.SELLER_JWT_SECRET',
-      // Third-party service keys
-      'ANTHROPIC_API_KEY',
-      'DATADOG_API_KEY',
-      'DATABASE_URL',
-      '*.ANTHROPIC_API_KEY',
-      '*.DATABASE_URL',
-    ],
-    censor: '[REDACTED]',
-  },
-  ...(isProduction
-    ? {}
-    : {
-        transport: {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname',
-          },
-        },
-      }),
-});
+
 
 const sanitizeHeaders = (headers: Record<string, unknown>) => ({
   ...headers,
@@ -196,12 +151,12 @@ if (backupEnabled) {
 
   // Graceful shutdown
   process.on('SIGTERM', () => {
-    console.log('[Backup] Stopping backup scheduler...');
+    logger.info('[Backup] Stopping backup scheduler...');
     backupScheduler.stop();
   });
 
   process.on('SIGINT', () => {
-    console.log('[Backup] Stopping backup scheduler...');
+    logger.info('[Backup] Stopping backup scheduler...');
     backupScheduler.stop();
     process.exit(0);
   });
@@ -299,13 +254,13 @@ app.get('/health', async (_req, res) => {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason: unknown) => {
-  console.error('[Unhandled Rejection]', reason);
+  logger.error('[Unhandled Rejection]', reason);
   Sentry.captureException(reason);
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err: Error) => {
-  console.error('[Uncaught Exception]', err);
+  logger.error('[Uncaught Exception]', err);
   Sentry.captureException(err);
 });
 
@@ -336,7 +291,7 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   const status = err.status ?? 500;
   const message = err.message || 'Internal server error';
-  // SECURITY: Use the structured logger (not console.error) so pino's redact
+  // SECURITY: Use the structured logger (not logger.error) so pino's redact
   // rules fire before the record is shipped to Datadog. Passing the raw Error
   // object is intentional — pino serialises it safely. Never interpolate
   // err.message into a template string here as it may include key material.
@@ -362,14 +317,14 @@ app.get('/api/v1/ws/stats', (_req: Request, res: Response) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n  ██╗  ██╗ █████╗ ███████╗██╗███╗   ██╗ █████╗`);
-  console.log(`  ██║  ██║██╔══██╗╚══███╔╝██║████╗  ██║██╔══██╗`);
-  console.log(`  ███████║███████║  ███╔╝ ██║██╔██╗ ██║███████║`);
-  console.log(`  ██╔══██║██╔══██║ ███╔╝  ██║██║╚██╗██║██╔══██║`);
-  console.log(`  ██║  ██║██║  ██║███████╗██║██║ ╚████║██║  ██║`);
-  console.log(`  ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝`);
-  console.log(`\n  Data Escrow API running on http://localhost:${PORT}`);
-  console.log(`  WebSocket server running on ws://localhost:${PORT}/ws\n`);
+  logger.info(`\n  ██╗  ██╗ █████╗ ███████╗██╗███╗   ██╗ █████╗`);
+  logger.info(`  ██║  ██║██╔══██╗╚══███╔╝██║████╗  ██║██╔══██╗`);
+  logger.info(`  ███████║███████║  ███╔╝ ██║██╔██╗ ██║███████║`);
+  logger.info(`  ██╔══██║██╔══██║ ███╔╝  ██║██║╚██╗██║██╔══██║`);
+  logger.info(`  ██║  ██║██║  ██║███████╗██║██║ ╚████║██║  ██║`);
+  logger.info(`  ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝`);
+  logger.info(`\n  Data Escrow API running on http://localhost:${PORT}`);
+  logger.info(`  WebSocket server running on ws://localhost:${PORT}/ws\n`);
 
   // SECURITY: Validate agent wallet at startup — logs the PUBLIC key only.
   // If the secret is absent (e.g. demo mode) this logs a warning instead of
@@ -383,21 +338,21 @@ server.listen(PORT, () => {
 
 // Graceful shutdown for WebSocket server
 process.on('SIGTERM', () => {
-  console.log('[Server] Shutting down gracefully...');
+  logger.info('[Server] Shutting down gracefully...');
   stopDeliveryRetryWorker();
   wsServer.shutdown();
   server.close(() => {
-    console.log('[Server] HTTP server closed');
+    logger.info('[Server] HTTP server closed');
     process.exit(0);
   });
 });
 
 process.on('SIGINT', () => {
-  console.log('[Server] Shutting down gracefully...');
+  logger.info('[Server] Shutting down gracefully...');
   stopDeliveryRetryWorker();
   wsServer.shutdown();
   server.close(() => {
-    console.log('[Server] HTTP server closed');
+    logger.info('[Server] HTTP server closed');
     process.exit(0);
   });
 });

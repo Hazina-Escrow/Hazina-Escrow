@@ -212,7 +212,7 @@ export function createCompressionMiddleware(options: CompressionOptions = {}) {
         })
         .catch((err: unknown) => {
           // Compression failed — fall back to uncompressed response
-          console.error('[Compression] Failed to compress response:', err);
+          logger.error('[Compression] Failed to compress response:', err);
           res.write = originalWrite;
           res.end = originalEnd;
           res.end(body, callback as () => void);
@@ -224,3 +224,4 @@ export function createCompressionMiddleware(options: CompressionOptions = {}) {
     next();
   };
 }
+\nimport { logger } from '../lib/logger';

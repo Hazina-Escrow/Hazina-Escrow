@@ -141,7 +141,7 @@ export class CircuitBreaker {
     }
     const prev = this.state;
     this.state = next;
-    console.warn(`[CircuitBreaker] "${this.name}" ${prev} → ${next}`);
+    logger.warn(`[CircuitBreaker] "${this.name}" ${prev} → ${next}`);
     this.onStateChange?.(this.name, prev, next);
   }
 }
@@ -170,3 +170,4 @@ export function getCircuitBreaker(name: string, options?: CircuitBreakerOptions)
 export function getAllCircuitBreakerStats() {
   return Array.from(registry.values()).map(cb => cb.getStats());
 }
+\nimport { logger } from '../lib/logger';

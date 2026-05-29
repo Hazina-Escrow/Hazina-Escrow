@@ -244,12 +244,12 @@ export function startDeliveryRetryWorker(intervalMs = 60_000): void {
   }
 
   void retryFailedDeliveries().catch(error => {
-    console.error('[Escrow] Initial delivery retry run failed:', error);
+    logger.error('[Escrow] Initial delivery retry run failed:', error);
   });
 
   deliveryRetryWorker = setInterval(() => {
     void retryFailedDeliveries().catch(error => {
-      console.error('[Escrow] Delivery retry worker failed:', error);
+      logger.error('[Escrow] Delivery retry worker failed:', error);
     });
   }, intervalMs);
 }
@@ -273,11 +273,11 @@ export function stopDeliveryRetryWorker(): void {
         memo: `hazina-${dataset.id.slice(0, 10)}`,
       });
       sellerTxHash = payment.txHash;
-      console.log(
+      logger.info(
         `[Escrow] Paid seller ${sellerAmount} USDC → ${dataset.sellerWallet} (${sellerTxHash})`,
       );
     } catch (payErr) {
-      console.warn(
+      logger.warn(
         "[Escrow] Seller payment failed (data still delivered):",
         payErr instanceof Error ? payErr.message : payErr,
       );
@@ -343,7 +343,7 @@ paymentsRouter.get('/admin/payouts/stuck', requireAdminKey, async (_req: Request
       return res.status(400).json({ error: err.message });
     }
     // Unexpected error — log full details server-side, send nothing internal to client
-    console.error("[Verify] Unexpected error processing payment:", err);
+    logger.error("[Verify] Unexpected error processing payment:", err);
     return res.status(500).json({ error: "Payment verification failed — please try again" });
   }
 });
@@ -397,7 +397,7 @@ paymentsRouter.post(
       summary = result.summary;
       answer = result.answer;
     } catch (err) {
-      console.error('Demo mode AI error:', err);
+      logger.error('Demo mode AI error:', err);
       summary = 'Demo mode: AI summary unavailable. Set ANTHROPIC_API_KEY to enable.';
     }
 
@@ -506,3 +506,4 @@ paymentsRouter.get(
     });
   },
 );
+\nimport { logger } from '../lib/logger';

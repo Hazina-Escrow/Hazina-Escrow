@@ -105,7 +105,7 @@ webhooksRouter.post('/payment', async (req: Request, res: Response) => {
 
   const secret = process.env.PAYMENT_WEBHOOK_SECRET;
   if (!secret) {
-    console.error('[Webhook] PAYMENT_WEBHOOK_SECRET not set');
+    logger.error('[Webhook] PAYMENT_WEBHOOK_SECRET not set');
     return res.status(500).json({ error: 'Webhook configuration error' });
   }
 
@@ -113,7 +113,7 @@ webhooksRouter.post('/payment', async (req: Request, res: Response) => {
   const expectedSignature = signPayload(bodyString, secret);
 
   if (signature !== expectedSignature) {
-    console.warn('[Webhook] Invalid signature received');
+    logger.warn('[Webhook] Invalid signature received');
     return res.status(401).json({ error: 'Invalid signature' });
   }
 
@@ -139,7 +139,7 @@ webhooksRouter.post('/payment', async (req: Request, res: Response) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[Webhook] Payment processing failed: ${message}`);
+    logger.error(`[Webhook] Payment processing failed: ${message}`);
     return res.status(400).json({ error: message });
   }
 });
@@ -230,3 +230,4 @@ webhooksRouter.patch('/:id', requireApiKey, validateBody(updateWebhookSchema), a
   const { secret: _secret, ...rest } = updated;
   return res.json({ success: true, webhook: rest });
 });
+\nimport { logger } from '../lib/logger';
