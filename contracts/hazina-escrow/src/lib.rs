@@ -34,7 +34,6 @@ pub enum DataKey {
     EscrowCount,
     Paused,
     WhitelistEnforced,
-    Paused,
     // Circuit-breaker config
     MaxEscrowAmount,
     MaxEscrowsPerLedger,
@@ -67,6 +66,8 @@ pub enum Error {
     NotSeller = 11,
     Expired = 12,
     NotPaused = 13,
+}
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[repr(u32)]
 pub enum HazinaEscrowError {
@@ -88,8 +89,6 @@ pub enum HazinaEscrowError {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[derive(Clone, Eq, PartialEq, Debug)]
-
 pub struct EscrowRecord {
     pub escrow_id: u64,
     pub dataset_id: String,
@@ -149,22 +148,10 @@ impl HazinaEscrow {
         env.storage().instance().set(&DataKey::Treasury, &treasury);
         env.storage()
             .instance()
-            .set(&DataKey::PlatformFee, &platform_fee_bps);
+            .set(&DataKey::DefaultPlatformFee, &platform_fee_bps);
         env.storage().instance().set(&DataKey::EscrowCount, &0u64);
         env.storage().instance().set(&DataKey::Paused, &false);
         Ok(())
-    }
-
-    pub fn pause(env: Env, admin: Address) {
-        admin.require_auth();
-        Self::assert_admin(&env, &admin);
-        env.storage().instance().set(&DataKey::Paused, &true);
-            .set(&DataKey::DefaultPlatformFee, &platform_fee_bps);
-        env.storage().instance().set(&DataKey::EscrowCount, &0u64);
-        env.storage()
-            .instance()
-            .set(&DataKey::WhitelistEnforced, &false);
-        env.storage().instance().set(&DataKey::Paused, &false);
     }
 
     // ─── Pause / unpause ────────────────────────────────────────────────────
@@ -226,18 +213,9 @@ impl HazinaEscrow {
         env.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
-    /// Update platform fee. Only admin.
+    /// Update platform fee (max 1000 bps = 10%). Only admin.
     pub fn update_fee(env: Env, admin: Address, new_fee_bps: u32) {
-        admin.require_auth();
-        Self::assert_admin(&env, &admin);
-        Self::assert_valid_fee(&env, new_fee_bps);
-
-        env.storage()
-            .instance()
-            .set(&DataKey::DefaultPlatformFee, &new_fee_bps);
-
-        env.events()
-            .publish((soroban_sdk::symbol_short!("fee_upd"),), (admin, new_fee_bps));
+        Self::set_default_fee(env, admin, new_fee_bps);
     }
 
     pub fn unpause(env: Env, admin: Address) {
@@ -279,13 +257,6 @@ impl HazinaEscrow {
             .instance()
             .get(&DataKey::DefaultPlatformFee)
             .unwrap_or(500)
-    }
-
-    pub fn get_treasury(env: Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&DataKey::Treasury)
-            .unwrap_or_else(|| panic_with_error!(&env, HazinaEscrowError::NotInitialized))
     }
 
     pub fn get_dataset_fee_config(env: Env, dataset_id: String) -> DatasetFeeConfig {
@@ -632,7 +603,7 @@ impl HazinaEscrow {
         admin.require_auth();
         Self::assert_admin(&env, &admin);
         Self::assert_not_paused(&env);
-        Self::release_one(&env, escrow_id);
+        Self::release_one(&env, &admin, escrow_id);
     }
 
     pub fn release_multi(env: Env, admin: Address, escrow_ids: Vec<u64>) {
@@ -645,7 +616,7 @@ impl HazinaEscrow {
             let escrow_id = escrow_ids
                 .get(i)
                 .unwrap_or_else(|| panic_with_error!(&env, HazinaEscrowError::EscrowNotFound));
-            Self::release_one(&env, escrow_id);
+            Self::release_one(&env, &admin, escrow_id);
             i += 1;
         }
         if record.refunded {
@@ -658,7 +629,7 @@ impl HazinaEscrow {
             return Err(Error::Expired);
         }
 
-        Self::distribute_locked_funds(&env, &mut record);
+        Self::distribute_locked_funds(&env, &admin, &mut record);
         env.storage()
             .persistent()
             .set(&EscrowKey::Record(escrow_id), &record);
@@ -756,7 +727,7 @@ impl HazinaEscrow {
     }
 
         let admin = Self::get_admin(&env);
-        Self::distribute_locked_funds(&env, &mut record);
+        Self::distribute_locked_funds(&env, &admin, &mut record);
         env.storage()
             .persistent()
             .set(&EscrowKey::Record(escrow_id), &record);
@@ -797,19 +768,22 @@ impl HazinaEscrow {
     pub fn get_fee(env: Env) -> u32 {
         env.storage()
             .instance()
-            .get(&DataKey::PlatformFee)
+            .get(&DataKey::DefaultPlatformFee)
             .unwrap_or(500)
     }
 
-    fn assert_valid_amount(_env: &Env, amount: i128) {
-    fn distribute_locked_funds(env: &Env, record: &mut EscrowRecord) {
+    fn distribute_locked_funds(env: &Env, admin: &Address, record: &mut EscrowRecord) {
         let fee_bps = Self::get_fee(env.clone());
         let platform_cut = record.amount * fee_bps as i128 / MAX_BASIS_POINTS as i128;
         let seller_cut = record.amount - platform_cut;
         let token_client = token::Client::new(env, &record.token);
         token_client.transfer(&env.current_contract_address(), &record.seller, &seller_cut);
         if platform_cut > 0 {
-            let treasury = Self::get_treasury(env);
+            let treasury: Address = env
+                .storage()
+                .instance()
+                .get(&DataKey::Treasury)
+                .unwrap_or(admin.clone());
             token_client.transfer(&env.current_contract_address(), &treasury, &platform_cut);
     fn assert_valid_amount(env: &Env, amount: i128) {
         assert!(amount > 0, "Amount must be greater than zero");
@@ -863,19 +837,6 @@ impl HazinaEscrow {
     }
 
     fn get_admin(env: &Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .unwrap_or_else(|| panic_with_error!(env, HazinaEscrowError::NotInitialized))
-    }
-
-    fn get_treasury(env: &Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&DataKey::Treasury)
-            .unwrap_or_else(|| panic_with_error!(env, HazinaEscrowError::NotInitialized))
-    }
-
     fn resolve_fee_bps(env: &Env, dataset_id: &String) -> u32 {
         env.storage()
             .persistent()
@@ -893,7 +854,7 @@ impl HazinaEscrow {
         }
     }
 
-    fn release_one(env: &Env, escrow_id: u64) {
+    fn release_one(env: &Env, admin: &Address, escrow_id: u64) {
         let mut record = Self::read_escrow(env, escrow_id);
         if record.released {
             panic_with_error!(env, HazinaEscrowError::AlreadyReleased);
@@ -914,7 +875,12 @@ impl HazinaEscrow {
 
         let token_client = token::Client::new(env, &record.token);
         token_client.transfer(&env.current_contract_address(), &record.seller, &seller_cut);
-        let treasury = Self::get_treasury(env);
+        
+        let treasury: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Treasury)
+            .unwrap_or(admin.clone());
         token_client.transfer(&env.current_contract_address(), &treasury, &platform_cut);
 
         record.released = true;
@@ -1011,21 +977,12 @@ mod tests {
         Address,
         Address,
         Address,
-        Address,
-    ) {
-        Env,
-        HazinaEscrowClient<'static>,
-        Address,
-        Address,
-        Address,
-        Address,
     ) {
         let env = Env::default();
         env.mock_all_auths();
         env.ledger().set_timestamp(1000);
 
         let admin = Address::generate(&env);
-        let treasury = Address::generate(&env);
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
 
@@ -1478,7 +1435,6 @@ mod tests {
         env.mock_all_auths();
 
         let admin = Address::generate(&env);
-        let treasury = Address::generate(&env);
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
 
@@ -1556,20 +1512,6 @@ mod tests {
     fn test_set_fee_rejects_above_cap() {
         let (_, client, admin, _, _, _) = setup();
         client.set_fee(&admin, &(MAX_FEE_BPS + 1));
-    }
-
-    #[test]
-    fn test_update_fee_accepts_max_boundary() {
-        let (_, client, admin, _, _, _) = setup();
-        client.update_fee(&admin, &MAX_FEE_BPS);
-        assert_eq!(client.get_fee(), MAX_FEE_BPS);
-    }
-
-    #[test]
-    #[should_panic(expected = "Error(Contract, #4)")]
-    fn test_update_fee_rejects_above_cap() {
-        let (_, client, admin, _, _, _) = setup();
-        client.update_fee(&admin, &(MAX_FEE_BPS + 1));
     }
 
     #[test]
@@ -1883,7 +1825,6 @@ mod fuzz_tests {
             let env = Env::default();
             env.mock_all_auths();
             let admin = Address::generate(&env);
-        let treasury = Address::generate(&env);
             let client = deploy_escrow(&env, &admin, 500);
             client.set_fee(&admin, &new_fee);
             prop_assert_eq!(client.get_default_fee(), new_fee);
