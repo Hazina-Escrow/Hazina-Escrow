@@ -258,9 +258,12 @@ agentRouter.post(
       logger.info(`[Agent][Demo] New research job: "${query}"`);
       const job = await runResearchAgentDemo(query);
 
+    res.setHeader('X-Demo-Mode', 'true');
     return res.json({
       success: true,
       demo: true,
+      disclaimer:
+        'DEMO MODE: All payments, transaction hashes, and wallet addresses are simulated. No real blockchain activity occurred.',
       jobId: job.jobId,
       query: job.query,
       report: stripRawAnalysis(job.report),
@@ -269,12 +272,15 @@ agentRouter.post(
         currency: 'USDC',
         network: 'Stellar (simulated)',
         note: 'Demo mode — no real Stellar transactions. All payments simulated.',
+        disclaimer: 'SIMULATED: These payments did not occur on any blockchain.',
         sellerPayments: job.purchases.map((p) => ({
           seller: p.datasetName,
           type: p.type,
           amount: p.amountPaid,
           txHash: p.txHash,
           onChain: false,
+          simulated: true,
+          disclaimer: '[SIMULATED] Not a real transaction — demo mode only',
         })),
         totalSpent: job.totalSpent,
         agentProfit: job.agentProfit,
