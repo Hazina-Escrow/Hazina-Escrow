@@ -13,6 +13,7 @@ import {
 import { validateBody } from '../common/validate';
 import { notifySeller, signPayload } from './webhook.service';
 import { requireApiKey } from '../common/auth.middleware';
+import { encryptSecret } from '../common/secret-crypto';
 import { processPayment } from '../payments/payments.service';
 
 export const webhooksRouter = Router();
@@ -152,7 +153,7 @@ webhooksRouter.post('/', requireApiKey, validateBody(createWebhookSchema), async
     id: `wh-${uuidv4()}`,
     sellerWallet,
     url,
-    secret,
+    secret: encryptSecret(secret),
     events: events ?? [],
     active: true,
     createdAt: new Date().toISOString(),
@@ -222,6 +223,9 @@ webhooksRouter.patch('/:id', requireApiKey, validateBody(updateWebhookSchema), a
   }
 
   const updates = req.body as z.infer<typeof updateWebhookSchema>;
+  if (updates.secret !== undefined) {
+    updates.secret = encryptSecret(updates.secret);
+  }
   const updated = await updateWebhook(req.params.id, updates);
   if (!updated) {
     return res.status(500).json({ error: 'Failed to update webhook' });
