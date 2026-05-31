@@ -11,6 +11,9 @@ let writeQueue: Promise<void> = Promise.resolve();
 // In-memory guard for tx hashes that are currently being persisted.
 const pendingTxHashes = new Set<string>();
 
+// In-memory cache: populated on first read, invalidated on every write.
+let cache: Store | null = null;
+
 const DATA_PATH = process.env.DATA_PATH || path.resolve(process.cwd(), 'data/datasets.json');
 
 async function writeStoreFile(store: Store): Promise<void> {
@@ -23,6 +26,7 @@ async function writeStoreFile(store: Store): Promise<void> {
   try {
     await fs.writeFile(tempPath, serialized, 'utf-8');
     await fs.rename(tempPath, DATA_PATH);
+    cache = null;
   } catch (err) {
     await fs.unlink(tempPath).catch(() => {});
     throw err;
@@ -168,6 +172,7 @@ async function persistStore(store: Store): Promise<void> {
   const tempPath = `${DATA_PATH}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
   await fs.writeFile(tempPath, serialized, 'utf-8');
   await fs.rename(tempPath, DATA_PATH);
+  cache = null;
 }
 
 type LockHandle = Awaited<ReturnType<typeof fs.open>>;
@@ -255,7 +260,13 @@ async function updateStore<T>(mutator: (store: Store) => Promise<T> | T): Promis
 
 export async function readStore(): Promise<Store> {
   await writeQueue;
-  return readStoreInternal();
+  if (cache) return cache;
+  cache = await readStoreInternal();
+  return cache;
+}
+
+export function invalidateCache(): void {
+  cache = null;
 }
 
 export async function writeStore(store: Store): Promise<void> {
