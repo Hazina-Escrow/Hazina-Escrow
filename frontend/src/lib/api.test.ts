@@ -9,6 +9,7 @@ import { initEnv } from './env';
 
 vi.mock('./env', () => ({
   getEnv: () => ({ apiUrl: 'http://localhost', apiKey: 'test', maxConcurrentRequests: 8 }),
+  initEnv: vi.fn(),
 }));
 
 function createFetchResponse(body: unknown) {
@@ -163,7 +164,7 @@ describe('api request throttling', () => {
 
     const firstCall = fetchMock.mock.calls[0];
     if (!firstCall || firstCall.length === 0) throw new Error('fetchMock was not called');
-    const url = new URL(String((firstCall as any)[0]), 'http://localhost');
+    const url = new URL(String((firstCall as unknown[])[0]), 'http://localhost');
     expect(url.searchParams.getAll('type')).toEqual(['yield-data', 'risk-scores']);
     expect(url.searchParams.get('minPrice')).toBe('0.5');
     expect(url.searchParams.get('maxPrice')).toBe('5');
@@ -189,9 +190,12 @@ describe('api request throttling', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const datasetsPromise = api.getDatasets();
+    // Attach catch early so the rejection is always handled
+    const caught = datasetsPromise.catch(() => {});
 
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS);
+    await caught;
 
     await expect(datasetsPromise).rejects.toThrow('Request timed out — please try again');
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -215,9 +219,12 @@ describe('api request throttling', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const agentPromise = api.agentDemo('long running query');
+    // Attach catch early so the rejection is always handled
+    const caught = agentPromise.catch(() => {});
 
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(AGENT_REQUEST_TIMEOUT_MS);
+    await caught;
 
     await expect(agentPromise).rejects.toThrow('Request timed out — please try again');
     expect(fetchMock).toHaveBeenCalledTimes(1);

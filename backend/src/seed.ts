@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { v4 as uuidv4 } from 'uuid';
 import { Dataset, Transaction, writeStore, readStore, Store } from './common/storage';
+import { logger } from './lib/logger';
 
 const DATA_TYPES = [
   'whale-wallets',
@@ -19,6 +20,13 @@ const generateStellarAddress = () => {
 };
 
 const seed = async () => {
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      '[seed] Refusing to run in production (NODE_ENV=production). Aborting to protect live data.',
+    );
+    process.exit(1);
+  }
+
   const clean = process.argv.includes('--clean');
   logger.info(
     `Starting seeding... ${clean ? '(Cleaning existing data)' : '(Appending to existing data)'}`,
@@ -104,4 +112,3 @@ const seed = async () => {
 };
 
 seed().catch(logger.error);
-\nimport { logger } from './lib/logger';

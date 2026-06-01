@@ -57,7 +57,9 @@ export function useTransactionWebSocket(
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const reconnectAttemptsRef = useRef(0);
-  const pendingSubscriptionsRef = useRef<Array<{ datasetIds?: string[]; transactionIds?: string[] }>>([]);
+  const pendingSubscriptionsRef = useRef<
+    Array<{ datasetIds?: string[]; transactionIds?: string[] }>
+  >([]);
   // Store callbacks in ref to avoid dependency issues
   const callbacksRef = useRef(callbacks);
   const maxReconnectAttempts = 5;
@@ -83,7 +85,7 @@ export function useTransactionWebSocket(
 
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const host = process.env.REACT_APP_WEBSOCKET_URL || `${protocol}://${window.location.host}`;
+      const host = import.meta.env.VITE_WEBSOCKET_URL || `${protocol}://${window.location.host}`;
       const wsUrl = `${host}/ws`;
 
       const ws = new WebSocket(wsUrl);
@@ -103,14 +105,16 @@ export function useTransactionWebSocket(
         ws.send(JSON.stringify(subscribeMsg));
 
         // Flush any subscriptions that were requested while CONNECTING
-        pendingSubscriptionsRef.current.forEach((ids: { datasetIds?: string[]; transactionIds?: string[] }) => {
-          const msg = {
-            type: 'subscribe',
-            ...ids,
-            ...(options.apiToken && { token: options.apiToken }),
-          };
-          ws.send(JSON.stringify(msg));
-        });
+        pendingSubscriptionsRef.current.forEach(
+          (ids: { datasetIds?: string[]; transactionIds?: string[] }) => {
+            const msg = {
+              type: 'subscribe',
+              ...ids,
+              ...(options.apiToken && { token: options.apiToken }),
+            };
+            ws.send(JSON.stringify(msg));
+          },
+        );
         pendingSubscriptionsRef.current = [];
       };
 
@@ -218,17 +222,6 @@ export function useTransactionWebSocket(
     },
     [options.apiToken],
   );
-
-  /**
-   * Send ping message to keep connection alive
-   */
-  const _sendPing = useCallback((): void => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      return;
-    }
-
-    wsRef.current.send(JSON.stringify({ type: 'ping' }));
-  }, []);
 
   // Connect on mount
   useEffect(() => {

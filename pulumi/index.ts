@@ -7,6 +7,26 @@ const projectName = 'hazina-escrow';
 const environment = pulumi.getStack();
 const corsAllowedOrigins = config.get('corsAllowedOrigins') || '';
 
+// Store secrets in AWS Secrets Manager so their values never appear in the
+// Pulumi state file. The task definition references them by ARN only.
+const anthropicApiKeySecret = new aws.secretsmanager.Secret(
+  `${projectName}-anthropic-api-key`,
+  { name: `${projectName}/${environment}/anthropic-api-key` },
+);
+new aws.secretsmanager.SecretVersion(`${projectName}-anthropic-api-key-version`, {
+  secretId: anthropicApiKeySecret.id,
+  secretString: config.requireSecret('anthropicApiKey'),
+});
+
+const agentWalletSecretSm = new aws.secretsmanager.Secret(
+  `${projectName}-agent-wallet-secret`,
+  { name: `${projectName}/${environment}/agent-wallet-secret` },
+);
+new aws.secretsmanager.SecretVersion(`${projectName}-agent-wallet-secret-version`, {
+  secretId: agentWalletSecretSm.id,
+  secretString: config.requireSecret('agentWalletSecret'),
+});
+
 // 1. Networking (VPC)
 const vpc = new awsx.ec2.Vpc(`${projectName}-vpc`, {
   numberOfAvailabilityZones: 2,
@@ -40,7 +60,7 @@ const efsSg = new aws.ec2.SecurityGroup(`${projectName}-efs-sg`, {
 });
 
 // Mount targets for EFS
-const mountTargets = vpc.privateSubnetIds.then(ids =>
+void vpc.privateSubnetIds.then(ids =>
   ids.map(
     (id, index) =>
       new aws.efs.MountTarget(`${projectName}-mt-${index}`, {
@@ -81,49 +101,83 @@ const listener = alb.createListener(`${projectName}-listener`, {
   },
 });
 
+// ECS task execution role with permission to pull secrets from Secrets Manager.
+// This replaces the hard-coded role ARN and grants only the minimum required access.
+const executionRole = new aws.iam.Role(`${projectName}-exec-role`, {
+  assumeRolePolicy: aws.iam.assumeRolePolicyForPrincipal({ Service: 'ecs-tasks.amazonaws.com' }),
+});
+
+new aws.iam.RolePolicyAttachment(`${projectName}-exec-role-policy`, {
+  role: executionRole.name,
+  policyArn: 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy',
+});
+
+// Allow the execution role to read only the two secrets it needs.
+new aws.iam.RolePolicy(`${projectName}-exec-role-secrets-policy`, {
+  role: executionRole.name,
+  policy: pulumi
+    .all([anthropicApiKeySecret.arn, agentWalletSecretSm.arn])
+    .apply(([anthropicArn, walletArn]) =>
+      JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Effect: 'Allow',
+            Action: ['secretsmanager:GetSecretValue'],
+            Resource: [anthropicArn, walletArn],
+          },
+        ],
+      }),
+    ),
+});
+
 const taskDefinition = new aws.ecs.TaskDefinition(`${projectName}-task`, {
   family: `${projectName}-backend`,
   cpu: '256',
   memory: '512',
   networkMode: 'awsvpc',
   requiresCompatibilities: ['FARGATE'],
-  executionRoleArn: aws.iam.Role.get(
-    'ecsTaskExecutionRole',
-    'arn:aws:iam::aws:role/service-role/AmazonECSTaskExecutionRolePolicy',
-  ).arn, // Simplification
-  containerDefinitions: pulumi.all([repo.repositoryUrl, efsFileSystem.id]).apply(([url, fsId]) =>
-    JSON.stringify([
-      {
-        name: 'backend',
-        image: `${url}:latest`,
-        portMappings: [{ containerPort: 3001 }],
-        environment: [
-          { name: 'PORT', value: '3001' },
-          { name: 'ANTHROPIC_API_KEY', value: config.requireSecret('anthropicApiKey') },
-          { name: 'ESCROW_WALLET', value: config.require('escrowWallet') },
-          { name: 'AGENT_WALLET_SECRET', value: config.requireSecret('agentWalletSecret') },
-          { name: 'ESCROW_CONTRACT_ID', value: config.get('escrowContractId') || '' },
-          { name: 'CORS_ALLOWED_ORIGINS', value: corsAllowedOrigins },
-          { name: 'STELLAR_NETWORK', value: 'testnet' },
-        ],
-        mountPoints: [
-          {
-            sourceVolume: 'data',
-            containerPath: '/app/data',
-            readOnly: false,
-          },
-        ],
-        logConfiguration: {
-          logDriver: 'awslogs',
-          options: {
-            'awslogs-group': logGroup.name,
-            'awslogs-region': 'us-east-1',
-            'awslogs-stream-prefix': 'ecs',
+  executionRoleArn: executionRole.arn,
+  containerDefinitions: pulumi
+    .all([repo.repositoryUrl, efsFileSystem.id, anthropicApiKeySecret.arn, agentWalletSecretSm.arn])
+    .apply(([url, , anthropicArn, walletArn]) =>
+      JSON.stringify([
+        {
+          name: 'backend',
+          image: `${url}:latest`,
+          portMappings: [{ containerPort: 3001 }],
+          // Non-sensitive config goes in environment (plaintext is fine here).
+          environment: [
+            { name: 'PORT', value: '3001' },
+            { name: 'ESCROW_WALLET', value: config.require('escrowWallet') },
+            { name: 'ESCROW_CONTRACT_ID', value: config.get('escrowContractId') || '' },
+            { name: 'CORS_ALLOWED_ORIGINS', value: corsAllowedOrigins },
+            { name: 'STELLAR_NETWORK', value: 'testnet' },
+          ],
+          // Secrets are injected by ECS at runtime from Secrets Manager.
+          // Their values are never written to the Pulumi state file.
+          secrets: [
+            { name: 'ANTHROPIC_API_KEY', valueFrom: anthropicArn },
+            { name: 'AGENT_WALLET_SECRET', valueFrom: walletArn },
+          ],
+          mountPoints: [
+            {
+              sourceVolume: 'data',
+              containerPath: '/app/data',
+              readOnly: false,
+            },
+          ],
+          logConfiguration: {
+            logDriver: 'awslogs',
+            options: {
+              'awslogs-group': logGroup.name,
+              'awslogs-region': 'us-east-1',
+              'awslogs-stream-prefix': 'ecs',
+            },
           },
         },
-      },
-    ]),
-  ),
+      ]),
+    ),
   volumes: [
     {
       name: 'data',

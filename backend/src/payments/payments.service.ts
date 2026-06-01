@@ -1,28 +1,20 @@
-import { v4 as uuidv4 } from 'uuid';
+import { sellerShare, platformFee as computePlatformFee } from '../common/constants';
+import { generateDataSummary } from '../ai/claude.service';
+import { notifySeller } from '../webhooks/webhook.service';
+import { transactionEventEmitter } from '../websocket/transaction-events';
+import { verifyStellarPayment, PaymentError } from './stellar.service';
 import {
   getDataset,
-  updateDataset,
   getTransactionByHash,
   updateTransactionByHash,
   addTransaction,
   getTransactionByMemo,
   updateTransactionByMemo,
+  updateDataset,
 } from '../common/storage';
-import { sellerShare, platformFee as computePlatformFee } from '../common/constants';
-import { generateDataSummary } from '../ai/claude.service';
-import { notifySeller } from '../webhooks/webhook.service';
-import { transactionEventEmitter } from '../websocket/transaction-events';
-// import { sellerShare, platformFee as computePlatformFee } from '../common/constants';
-// import { generateDataSummary } from '../ai/claude.service';
-// import { notifySeller } from '../webhooks/webhook.service';
-// import { transactionEventEmitter } from '../websocket/transaction-events';
-import { verifyStellarPayment } from './stellar.service';
-} from "../common/storage";
-import { sellerShare, platformFee as computePlatformFee } from "../common/constants";
-import { generateDataSummary } from "../ai/claude.service";
-import { notifySeller } from "../webhooks/webhook.service";
-import { transactionEventEmitter } from "../websocket/transaction-events";
-import { verifyStellarPayment, PaymentError } from "./stellar.service";
+import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../lib/logger';
+import { domainMetrics } from '../common/datadog';
 
 export interface DeliveryResult {
   success: boolean;
@@ -166,8 +158,8 @@ export async function markDeliveryFailure(params: {
       hash: txHash,
       status: 'delivery_failed',
       deliveryStatus: 'failed',
-//       status: "delivery_failed",
-//       deliveryStatus: "failed",
+      //       status: "delivery_failed",
+      //       deliveryStatus: "failed",
       amount: dataset.pricePerQuery,
       sellerReceived: sellerShare(dataset.pricePerQuery),
       platformFee: computePlatformFee(dataset.pricePerQuery),
@@ -235,8 +227,7 @@ export async function processPayment(params: {
     transactionEventEmitter.updateTransactionStatus(transactionId, dataset.id, 'failed', {
       error: verification.reason || 'Stellar payment verification failed',
     });
-    throw new Error(verification.reason || 'Stellar payment verification failed');
-
+    throw new PaymentError(verification.reason || 'Stellar payment verification failed');
   }
 
   // Bind the payment to this specific dataset via its memo.
@@ -254,30 +245,6 @@ export async function processPayment(params: {
     throw new Error(
       'Payment memo does not match any pending transaction — ensure you used the memo from your query initiation',
     );
-  }
-//   if (memoOwner.datasetId !== datasetId) {
-//     throw new Error(
-//       'Payment memo belongs to a different dataset — use the memo generated for this specific query',
-//     );
-//     throw new PaymentError(verification.reason || "Stellar payment verification failed");
-//   }
-
-  // Bind the payment to this specific dataset via its memo.
-  // Without this check a buyer could redirect a payment made for dataset A (using
-  // its memo) to unlock dataset B if both share the same price — the memo on the
-  // Stellar transaction is the only artefact that ties a payment to a purchase.
-  const txMemo = verification.memo ?? '';
-  if (!txMemo) {
-    throw new PaymentError(
-      'Payment must include the memo provided at query initiation — memo-less payments cannot be bound to a specific dataset',
-    );
-  }
-  const memoOwner = await getTransactionByMemo(txMemo);
-  if (!memoOwner) {
-    throw new PaymentError(
-      'Payment memo does not match any pending transaction — ensure you used the memo from your query initiation',
-    );
-  }
   }
 
   // Update or add transaction
@@ -334,7 +301,9 @@ export async function processPayment(params: {
 
     return response;
   } catch (deliveryErr) {
-    logger.error('[Escrow] Delivery failed — queued for retry:', deliveryErr);
+    logger.error(
+      `[Escrow] Delivery failed — queued for retry: ${deliveryErr instanceof Error ? deliveryErr.message : String(deliveryErr)}`,
+    );
     domainMetrics.paymentVerified({
       datasetType: dataset.type,
       mode: 'real',
@@ -349,4 +318,3 @@ export async function processPayment(params: {
     });
   }
 }
-\nimport { logger } from '../lib/logger';

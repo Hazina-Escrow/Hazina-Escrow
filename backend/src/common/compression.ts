@@ -14,6 +14,8 @@
  *    compression), and adds `Vary: Accept-Encoding`.
  */
 
+import { logger } from '../lib/logger';
+
 import zlib from 'zlib';
 import { Request, Response, NextFunction } from 'express';
 
@@ -212,7 +214,7 @@ export function createCompressionMiddleware(options: CompressionOptions = {}) {
         })
         .catch((err: unknown) => {
           // Compression failed — fall back to uncompressed response
-          logger.error('[Compression] Failed to compress response:', err);
+          logger.error({ err }, '[Compression] Failed to compress response');
           res.write = originalWrite;
           res.end = originalEnd;
           res.end(body, callback as () => void);
@@ -224,4 +226,3 @@ export function createCompressionMiddleware(options: CompressionOptions = {}) {
     next();
   };
 }
-\nimport { logger } from '../lib/logger';

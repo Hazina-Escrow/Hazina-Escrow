@@ -98,6 +98,11 @@ export const es: EnglishMessages = {
       imageNotSupported: 'Imagen no soportada',
     },
   },
+  websocket: {
+    connected: 'En vivo',
+    disconnected: 'Sin conexión',
+    error: 'Error de conexión',
+  },
   nav: {
     marketplace: 'Marketplace',
     agent: 'Agente IA',
@@ -238,6 +243,7 @@ export const es: EnglishMessages = {
       listingLiveBody: '{name} ya está en el marketplace.',
       listingLiveRevenue:
         'Los compradores pueden consultarlo por {price} USDC cada vez. El 95 % va directo a tu wallet Stellar.',
+      draftRestored: 'Borrador restaurado desde tu última sesión',
     },
     eyebrow: 'Gana pasivamente',
     title: 'Publica tus datos',

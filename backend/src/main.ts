@@ -15,7 +15,6 @@ import path from 'path';
 import http from 'http';
 import _swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
-
 import { datasetsRouter } from './datasets/datasets.router';
 import {
   paymentsRouter,
@@ -30,6 +29,7 @@ import { BackupScheduler } from './common/backup.scheduler';
 import { backupRouter, setBackupScheduler } from './common/backup.router';
 import { createCompressionMiddleware } from './common/compression';
 import { requireApiKey } from './common/auth.middleware';
+import { sanitizeBody } from './common/sanitize';
 import {
   createAgentRateLimitMiddleware,
   createGlobalRateLimitMiddleware,
@@ -41,8 +41,6 @@ import { createCorsOptions } from './common/cors';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-
 
 const sanitizeHeaders = (headers: Record<string, unknown>) => ({
   ...headers,
@@ -117,18 +115,6 @@ const agentLimiter = createAgentRateLimitMiddleware();
 Sentry.setupExpressErrorHandler(app);
 
 // Rate limiting — global + per-route limits for sensitive endpoints
-const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
-const ONE_HOUR_MS = 60 * 60 * 1000;
-
-const isDemoRoute = (req: Request): boolean => req.originalUrl.split('?')[0].endsWith('/demo');
-
-const globalLimiter = rateLimit({
-  windowMs: FIFTEEN_MINUTES_MS,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests' },
-});
 
 // Global rate limiting applies to all routes before route handlers run.
 app.use(globalLimiter);
@@ -254,13 +240,15 @@ app.get('/health', async (_req, res) => {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason: unknown) => {
-  logger.error('[Unhandled Rejection]', reason);
+  logger.error(
+    `[Unhandled Rejection]: ${reason instanceof Error ? reason.message : String(reason)}`,
+  );
   Sentry.captureException(reason);
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err: Error) => {
-  logger.error('[Uncaught Exception]', err);
+  logger.error(`[Uncaught Exception]: ${err.message}`);
   Sentry.captureException(err);
 });
 
@@ -288,19 +276,26 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // Global error handling middleware — Issue #283 (standard error shape)
-app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-  const status = err.status ?? 500;
-  const message = err.message || 'Internal server error';
-  // SECURITY: Use the structured logger (not logger.error) so pino's redact
-  // rules fire before the record is shipped to Datadog. Passing the raw Error
-  // object is intentional — pino serialises it safely. Never interpolate
-  // err.message into a template string here as it may include key material.
-  logger.error({ requestId: req.id, status, err }, 'Unhandled request error');
-  Sentry.captureException(err);
-  res
-    .status(status)
-    .json({ error: message, code: err.code || 'INTERNAL_ERROR', requestId: req.id });
-});
+app.use(
+  (
+    err: { status?: number; message?: string; code?: string },
+    req: Request,
+    res: Response,
+    _next: NextFunction,
+  ) => {
+    const status = err.status ?? 500;
+    const message = err.message || 'Internal server error';
+    // SECURITY: Use the structured logger (not logger.error) so pino's redact
+    // rules fire before the record is shipped to Datadog. Passing the raw Error
+    // object is intentional — pino serialises it safely. Never interpolate
+    // err.message into a template string here as it may include key material.
+    logger.error({ requestId: req.id, status, err }, 'Unhandled request error');
+    Sentry.captureException(err);
+    res
+      .status(status)
+      .json({ error: message, code: err.code || 'INTERNAL_ERROR', requestId: req.id });
+  },
+);
 
 startDeliveryRetryWorker();
 
