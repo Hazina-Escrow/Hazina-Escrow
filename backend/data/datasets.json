@@ -1,0 +1,92 @@
+{
+  "datasets": [
+    {
+      "id": "ds-storage-test",
+      "name": "Storage Fixture Dataset",
+      "description": "Fixture dataset for storage tests",
+      "type": "yield-data",
+      "pricePerQuery": 0.05,
+      "sellerWallet": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "data": {
+        "rows": 1
+      },
+      "queriesServed": 0,
+      "totalEarned": 0,
+      "createdAt": "2026-06-01T17:46:04.179Z"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "tx-mixed-0",
+      "datasetId": "ds-storage-test",
+      "txHash": "mixed-hash-0",
+      "amount": 0.02,
+      "timestamp": "2026-06-01T17:46:04.248Z"
+    },
+    {
+      "id": "tx-mixed-1",
+      "datasetId": "ds-storage-test",
+      "txHash": "mixed-hash-1",
+      "amount": 0.02,
+      "timestamp": "2026-06-01T17:46:04.248Z"
+    },
+    {
+      "id": "tx-mixed-2",
+      "datasetId": "ds-storage-test",
+      "txHash": "mixed-hash-2",
+      "amount": 0.02,
+      "timestamp": "2026-06-01T17:46:04.248Z"
+    },
+    {
+      "id": "tx-mixed-3",
+      "datasetId": "ds-storage-test",
+      "txHash": "mixed-hash-3",
+      "amount": 0.02,
+      "timestamp": "2026-06-01T17:46:04.248Z"
+    },
+    {
+      "id": "tx-mixed-4",
+      "datasetId": "ds-storage-test",
+      "txHash": "mixed-hash-4",
+      "amount": 0.02,
+      "timestamp": "2026-06-01T17:46:04.248Z"
+    },
+    {
+      "id": "tx-mixed-5",
+      "datasetId": "ds-storage-test",
+      "txHash": "mixed-hash-5",
+      "amount": 0.02,
+      "timestamp": "2026-06-01T17:46:04.248Z"
+    },
+    {
+      "id": "tx-mixed-6",
+      "datasetId": "ds-storage-test",
+      "txHash": "mixed-hash-6",
+      "amount": 0.02,
+      "timestamp": "2026-06-01T17:46:04.248Z"
+    },
+    {
+      "id": "tx-mixed-7",
+      "datasetId": "ds-storage-test",
+      "txHash": "mixed-hash-7",
+      "amount": 0.02,
+      "timestamp": "2026-06-01T17:46:04.248Z"
+    },
+    {
+      "id": "tx-mixed-8",
+      "datasetId": "ds-storage-test",
+      "txHash": "mixed-hash-8",
+      "amount": 0.02,
+      "timestamp": "2026-06-01T17:46:04.248Z"
+    },
+    {
+      "id": "tx-mixed-9",
+      "datasetId": "ds-storage-test",
+      "txHash": "mixed-hash-9",
+      "amount": 0.02,
+      "timestamp": "2026-06-01T17:46:04.248Z"
+    }
+  ],
+  "webhooks": [],
+  "payoutFailures": []
+}
