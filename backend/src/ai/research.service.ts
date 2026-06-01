@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { getAnthropicResearchModel } from './anthropic.config';
 import { AnthropicTimeoutError } from './claude.service';
+import { logger } from '../lib/logger';
 
 // Configurable via env; default 60 seconds (shared with claude.service)
 const ANTHROPIC_TIMEOUT_MS = parseInt(process.env.ANTHROPIC_TIMEOUT_MS ?? '60000', 10);
@@ -194,4 +195,3 @@ export function parseBudget(query: string): number {
   }
   return 500; // default
 }
-\nimport { logger } from '../lib/logger';

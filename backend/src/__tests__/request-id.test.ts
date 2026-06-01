@@ -39,14 +39,21 @@ function makeApp(): Express {
   app.use(router);
 
   // Global error handler (same shape as main.ts)
-  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status ?? 500;
-    res.status(status).json({
-      error: err.message || 'Internal server error',
-      code: 'INTERNAL_ERROR',
-      requestId: req.id,
-    });
-  });
+  app.use(
+    (
+      err: { status?: number; message?: string },
+      req: Request,
+      res: Response,
+      _next: NextFunction,
+    ) => {
+      const status = err.status ?? 500;
+      res.status(status).json({
+        error: err.message || 'Internal server error',
+        code: 'INTERNAL_ERROR',
+        requestId: req.id,
+      });
+    },
+  );
 
   return app;
 }
@@ -87,10 +94,7 @@ describe('Request Correlation ID Middleware', () => {
   it('each request without a client ID gets a different generated ID', async () => {
     const app = makeApp();
 
-    const [res1, res2] = await Promise.all([
-      request(app).get('/ping'),
-      request(app).get('/ping'),
-    ]);
+    const [res1, res2] = await Promise.all([request(app).get('/ping'), request(app).get('/ping')]);
 
     expect(res1.headers['x-request-id']).toBeDefined();
     expect(res2.headers['x-request-id']).toBeDefined();

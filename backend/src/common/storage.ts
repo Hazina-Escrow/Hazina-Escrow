@@ -1,17 +1,12 @@
-import { promises as fs } from 'fs';
+import { promises as fs, existsSync } from 'fs';
 import path from 'path';
 
-const DATA_PATH = path.join(__dirname, '../../../data/datasets.json');
-const DATA_DIR = path.dirname(DATA_PATH);
-const LOCK_PATH = `${DATA_PATH}.lock`;
-const LOCK_STALE_MS = 30_000;
-
-let writeQueue: Promise<void> = Promise.resolve();
-
-// In-memory guard for tx hashes that are currently being persisted.
-const pendingTxHashes = new Set<string>();
-
 const DATA_PATH = process.env.DATA_PATH || path.resolve(process.cwd(), 'data/datasets.json');
+const DATA_DIR = path.dirname(DATA_PATH);
+const LOCK_PATH = path.join(DATA_DIR, '.store.lock');
+const LOCK_STALE_MS = 30_000;
+const pendingTxHashes = new Set<string>();
+let writeQueue: Promise<void> = Promise.resolve();
 
 async function writeStoreFile(store: Store): Promise<void> {
   const tempPath = path.join(
@@ -56,7 +51,6 @@ export interface Transaction {
     | 'failed'
     | 'refunded'
     | 'delivery_failed';
-  status?: 'pending' | 'verifying' | 'verified' | 'completed' | 'failed' | 'refunded' | 'delivery_failed';
   deliveryStatus?: 'pending' | 'delivered' | 'failed';
   sellerPaid?: boolean;
   sellerAmount?: number;
@@ -133,41 +127,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
 async function readRaw(): Promise<Store> {
   if (!existsSync(DATA_PATH)) {
-    const empty: Store = { datasets: [], transactions: [], webhooks: [] };
+    const empty: Store = { datasets: [], transactions: [], webhooks: [], payoutFailures: [] };
     await writeStoreFile(empty);
     return empty;
   }
-}
-
-async function readStoreInternal(): Promise<Store> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  if (!(await fileExists(DATA_PATH))) {
-    return createEmptyStore();
-  }
-
   const raw = await fs.readFile(DATA_PATH, 'utf-8');
   if (!raw.trim()) {
     return createEmptyStore();
   }
-
   const parsed = JSON.parse(raw) as Partial<Store>;
   return normalizeStore(parsed);
-}
-
-async function persistStore(store: Store): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  const serialized = JSON.stringify(store, null, 2);
-  const tempPath = `${DATA_PATH}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
-  await fs.writeFile(tempPath, serialized, 'utf-8');
-  await fs.rename(tempPath, DATA_PATH);
 }
 
 type LockHandle = Awaited<ReturnType<typeof fs.open>>;
@@ -221,10 +192,6 @@ function enqueueWrite<T>(task: () => Promise<T>): Promise<T> {
     () => undefined,
   );
   return run;
-export async function writeStore(store: Store): Promise<void> {
-  // Enqueue so concurrent external writes don't interleave
-  mutationQueue = mutationQueue.then(() => writeStoreFile(store));
-  return mutationQueue;
 }
 
 async function withLockedWrite<T>(task: () => Promise<T>): Promise<T> {
@@ -234,33 +201,27 @@ async function withLockedWrite<T>(task: () => Promise<T>): Promise<T> {
       return await task();
     } finally {
       await releaseLock(lock);
-      const store = await readRaw();
-      const [updated, value] = await fn(store);
-      await writeStoreFile(updated);
-      resolve(value);
-    } catch (err) {
-      reject(err);
     }
   });
 }
 
 async function updateStore<T>(mutator: (store: Store) => Promise<T> | T): Promise<T> {
   return withLockedWrite(async () => {
-    const store = await readStoreInternal();
+    const store = await readRaw();
     const result = await mutator(store);
-    await persistStore(store);
+    await writeStoreFile(store);
     return result;
   });
 }
 
 export async function readStore(): Promise<Store> {
   await writeQueue;
-  return readStoreInternal();
+  return readRaw();
 }
 
 export async function writeStore(store: Store): Promise<void> {
   return withLockedWrite(async () => {
-    await persistStore(store);
+    await writeStoreFile(store);
   });
 }
 

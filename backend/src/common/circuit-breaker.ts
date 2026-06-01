@@ -13,6 +13,8 @@
  *   HALF_OPEN → OPEN    : probe request fails
  */
 
+import { logger } from '../lib/logger';
+
 export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 
 export interface CircuitBreakerOptions {
@@ -170,4 +172,3 @@ export function getCircuitBreaker(name: string, options?: CircuitBreakerOptions)
 export function getAllCircuitBreakerStats() {
   return Array.from(registry.values()).map(cb => cb.getStats());
 }
-\nimport { logger } from '../lib/logger';

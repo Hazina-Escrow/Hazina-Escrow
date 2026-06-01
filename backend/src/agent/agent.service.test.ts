@@ -49,6 +49,8 @@ vi.mock('../common/datadog', () => ({
     paymentVerified: vi.fn(),
     datasetQueried: vi.fn(),
     agentJobCompleted: vi.fn(),
+    agentDatasetPurchase: vi.fn(),
+    agentHumanPaymentVerified: vi.fn(),
   },
 }));
 
@@ -75,7 +77,9 @@ describe('runResearchAgentDemo metrics', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getAllDatasets).mockResolvedValue(datasets);
-    vi.mocked(getDataset).mockImplementation(async (id: string) => datasets.find(dataset => dataset.id === id));
+    vi.mocked(getDataset).mockImplementation(async (id: string) =>
+      datasets.find(dataset => dataset.id === id),
+    );
   });
 
   it('emits domain metrics for agent dataset purchases and completed jobs', async () => {
@@ -92,6 +96,7 @@ describe('runResearchAgentDemo metrics', () => {
       mode: 'demo',
       status: 'completed',
       datasetsQueried: SELLER_TYPES.length,
+      totalSpent: expect.any(Number),
     });
   });
 });

@@ -1,4 +1,5 @@
 import { BackupService, BackupConfig } from './backup.service';
+import { logger } from '../lib/logger';
 
 /**
  * Cron-like scheduler for automated backups
@@ -23,9 +24,9 @@ export class BackupScheduler {
     }
 
     const intervalMs = this.parseCronSchedule(this.cronSchedule);
-    
+
     logger.info(
-      `[Backup Scheduler] Starting automated backups (${this.cronSchedule}, every ${this.formatInterval(intervalMs)})`
+      `[Backup Scheduler] Starting automated backups (${this.cronSchedule}, every ${this.formatInterval(intervalMs)})`,
     );
 
     // Run initial backup
@@ -70,11 +71,14 @@ export class BackupScheduler {
     if (simpleMatch) {
       const value = parseInt(simpleMatch[1], 10);
       const unit = simpleMatch[2];
-      
+
       switch (unit) {
-        case 'm': return value * 60 * 1000; // minutes
-        case 'h': return value * 60 * 60 * 1000; // hours
-        case 'd': return value * 24 * 60 * 60 * 1000; // days
+        case 'm':
+          return value * 60 * 1000; // minutes
+        case 'h':
+          return value * 60 * 60 * 1000; // hours
+        case 'd':
+          return value * 24 * 60 * 60 * 1000; // days
       }
     }
 
@@ -100,7 +104,13 @@ export class BackupScheduler {
       }
 
       // Weekly
-      if (minute === '0' && hour === '0' && dayOfMonth === '*' && month === '*' && dayOfWeek !== '*') {
+      if (
+        minute === '0' &&
+        hour === '0' &&
+        dayOfMonth === '*' &&
+        month === '*' &&
+        dayOfWeek !== '*'
+      ) {
         return 7 * 24 * 60 * 60 * 1000;
       }
     }
@@ -132,4 +142,3 @@ export class BackupScheduler {
     return this.backupService;
   }
 }
-\nimport { logger } from '../lib/logger';

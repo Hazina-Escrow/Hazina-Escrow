@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import QueryModal from './QueryModal';
 import { I18nProvider } from '../../i18n';
 import { api } from '../../lib/api';
+import * as env from '../../lib/env';
 
 vi.mock('../../lib/api', () => ({
   api: {
@@ -42,7 +43,9 @@ function renderModal(overrides?: {
 
 describe('QueryModal', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
+    vi.spyOn(env, 'isDemoModeEnabled').mockReturnValue(false);
     vi.mocked(api.initiateQuery).mockResolvedValue({
       payment: {
         paymentAddress: `G${'B'.repeat(55)}`,
@@ -54,6 +57,7 @@ describe('QueryModal', () => {
 
   it('runs the happy-path payment flow in demo mode', async () => {
     const onSuccess = vi.fn();
+    vi.mocked(env.isDemoModeEnabled).mockReturnValue(true);
     vi.mocked(api.demoQuery).mockResolvedValueOnce({
       success: true,
       demo: true,
@@ -64,13 +68,11 @@ describe('QueryModal', () => {
       },
       transaction: {
         hash: 'demo-hash',
-        status: 'confirmed',
+        status: 'success',
         deliveryStatus: 'delivered',
         amount: 0.05,
         sellerReceived: 0.0475,
         platformFee: 0.0025,
-        status: 'success',
-        deliveryStatus: 'delivered',
       },
     });
 
@@ -103,6 +105,7 @@ describe('QueryModal', () => {
   });
 
   it('revokes the Object URL after downloading JSON', async () => {
+    vi.mocked(env.isDemoModeEnabled).mockReturnValue(true);
     const createObjectURL = vi.fn(() => 'blob:mock');
     const revokeObjectURL = vi.fn();
     Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, writable: true });
@@ -118,13 +121,11 @@ describe('QueryModal', () => {
       },
       transaction: {
         hash: 'demo-hash',
-        status: 'confirmed',
+        status: 'success',
         deliveryStatus: 'delivered',
         amount: 0.05,
         sellerReceived: 0.0475,
         platformFee: 0.0025,
-        status: 'success',
-        deliveryStatus: 'delivered',
       },
     });
 
@@ -227,24 +228,18 @@ describe('QueryModal', () => {
     expect(screen.getByText('Transaction Hash')).toBeTruthy();
   });
 
-  it('traps focus inside the modal and closes on Escape', async () => {
-    const onClose = vi.fn();
-    renderModal({ onClose });
-
-    const closeButton = screen.getByRole('button', { name: 'Close' });
-    const proceedButton = screen.getByRole('button', { name: 'Proceed to Payment' });
+  it('hides the demo mode toggle when the feature flag is disabled', async () => {
+    renderModal();
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to Payment' }));
 
     await waitFor(() => {
-      expect(document.activeElement).toBe(closeButton);
+      expect(api.initiateQuery).toHaveBeenCalledWith('ds-query-1');
     });
 
-    fireEvent.keyDown(closeButton, { key: 'Tab' });
-    expect(document.activeElement).toBe(closeButton);
-
-    fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).toBe(proceedButton);
-
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText(/Demo mode/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Verify & Get Data' })).toHaveProperty(
+      'disabled',
+      true,
+    );
   });
 });

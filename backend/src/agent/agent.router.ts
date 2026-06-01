@@ -5,12 +5,13 @@ import {
   runResearchAgentDemo,
   SELLER_TYPES,
   AGENT_FEE_USDC,
+  IdempotentJobResult,
 } from './agent.service';
-import { runResearchAgent, runResearchAgentDemo, SELLER_TYPES, AGENT_FEE_USDC, IdempotentJobResult } from './agent.service';
 import { getAgentPublicKey } from './agent.wallet';
 import { validateBody } from '../common/validate';
 import { getAllDatasets } from '../common/storage';
 import { domainMetrics } from '../common/datadog';
+import { logger } from '../lib/logger';
 
 export const agentRouter = Router();
 
@@ -219,7 +220,7 @@ agentRouter.post('/research', validateBody(researchSchema), async (req: Request,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Research agent error';
-    logger.error('[Agent] Error:', err);
+    logger.error(`[Agent] Error: ${message}`);
 
     // Track job failure
     const reason = message.includes('Payment verification failed')

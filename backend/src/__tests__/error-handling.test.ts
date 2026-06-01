@@ -16,13 +16,20 @@ describe('Async Route Error Handling', () => {
     app.use(router);
 
     // Global error handler registered AFTER the route
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status ?? 500;
-      res.status(status).json({
-        error: err.message || 'Internal server error',
-        code: 'TEST_ERROR',
-      });
-    });
+    app.use(
+      (
+        err: { status?: number; message?: string },
+        _req: Request,
+        res: Response,
+        _next: NextFunction,
+      ) => {
+        const status = err.status ?? 500;
+        res.status(status).json({
+          error: err.message || 'Internal server error',
+          code: 'TEST_ERROR',
+        });
+      },
+    );
 
     const response = await request(app).get('/throw-async');
 
@@ -38,19 +45,26 @@ describe('Async Route Error Handling', () => {
     const router = Router();
 
     router.get('/throw-custom', async (_req: Request, _res: Response) => {
-      const error = new Error('Not Authorized') as any;
+      const error = new Error('Not Authorized') as Error & { status?: number };
       error.status = 401;
       throw error;
     });
 
     app.use(router);
 
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status ?? 500;
-      res.status(status).json({
-        error: err.message || 'Internal server error',
-      });
-    });
+    app.use(
+      (
+        err: { status?: number; message?: string },
+        _req: Request,
+        res: Response,
+        _next: NextFunction,
+      ) => {
+        const status = err.status ?? 500;
+        res.status(status).json({
+          error: err.message || 'Internal server error',
+        });
+      },
+    );
 
     const response = await request(app).get('/throw-custom');
 
