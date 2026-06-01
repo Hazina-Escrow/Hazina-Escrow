@@ -41,7 +41,7 @@ export function incrementMetric(metric: string, value = 1, tags?: MetricTags): v
   try {
     dogstatsd()?.increment(metric, value, formatTags(tags));
   } catch (error) {
-    logger.warn('[Datadog] Failed to submit custom metric:', metric, error);
+    logger.warn({ metric, err: error }, '[Datadog] Failed to submit custom metric');
   }
 }
 

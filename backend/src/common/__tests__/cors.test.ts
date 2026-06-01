@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import { createCorsOptions, parseCorsAllowedOrigins } from '../cors';
 
 describe('CORS configuration', () => {
@@ -60,13 +59,10 @@ describe('CORS configuration', () => {
     );
 
     if (typeof options.origin === 'function') {
-      options.origin(
-        'https://admin.hazina.example',
-        (error: Error | null, origin: boolean | string) => {
-          expect(error).toBeNull();
-          expect(origin).toBe(true);
-        },
-      );
+      options.origin('https://admin.hazina.example', (error: Error | null, origin?: unknown) => {
+        expect(error).toBeNull();
+        expect(origin).toBe(true);
+      });
     }
   });
 
@@ -83,7 +79,7 @@ describe('CORS configuration', () => {
       expect(allow).toBe(true);
     });
     if (typeof options.origin === 'function') {
-      options.origin(undefined, (error: Error | null, origin: boolean | string) => {
+      options.origin(undefined, (error: Error | null, origin?: unknown) => {
         expect(error).toBeNull();
         expect(origin).toBe(true);
       });
@@ -103,7 +99,7 @@ describe('CORS configuration', () => {
       expect(allow).toBeUndefined();
     });
     if (typeof options.origin === 'function') {
-      options.origin('https://evil.example', (error: Error | null, origin: boolean | string) => {
+      options.origin('https://evil.example', (error: Error | null, origin?: unknown) => {
         expect(error).toEqual(new Error('Origin https://evil.example is not allowed by CORS'));
         expect(origin).toBeUndefined();
       });

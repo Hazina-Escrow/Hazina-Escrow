@@ -278,7 +278,7 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
 // Global error handling middleware — Issue #283 (standard error shape)
 app.use(
   (
-    err: { status?: number; message?: string },
+    err: { status?: number; message?: string; code?: string },
     req: Request,
     res: Response,
     _next: NextFunction,
