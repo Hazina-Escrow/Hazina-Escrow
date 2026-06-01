@@ -10,6 +10,7 @@ import {
 } from '../common/storage';
 import { sendUsdcPayment } from '../agent/agent.wallet';
 import { notifySeller } from '../webhooks/webhook.service';
+import { logger } from '../lib/logger';
 
 const RETRY_BACKOFF_MS = [30_000, 120_000, 600_000] as const;
 const MANUAL_REVIEW_RETRY_COUNT = RETRY_BACKOFF_MS.length;
@@ -142,9 +143,8 @@ export function scheduleRetrySweep(delayMs = 1_000): void {
     clearTimeout(retryTimer);
   }
   retryTimer = setTimeout(() => {
-    runDuePayoutRetries().catch((err) => {
+    runDuePayoutRetries().catch(err => {
       logger.error('[Escrow] payout retry sweep failed:', err);
     });
   }, delayMs);
 }
-\nimport { logger } from '../lib/logger';

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import { logger } from '../lib/logger';
 
 const STELLAR_ADDRESS_REGEX = /^G[A-Z2-7]{55}$/;
 
@@ -158,11 +159,7 @@ function getRequestWallet(req: Request, walletField: string): string | null {
  * Accepts either the shared API key or a seller JWT.
  * When a seller JWT is used, the wallet in the request body must match the JWT claim.
  */
-export function requireSellerMutationAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+export function requireSellerMutationAuth(req: Request, res: Response, next: NextFunction) {
   const token = getBearerToken(req.headers.authorization);
   if (!token) {
     return res.status(401).json({ error: 'Authorization header missing or not Bearer' });
@@ -216,4 +213,3 @@ export function requireSellerJwt(req: Request, res: Response, next: NextFunction
   req.sellerAuth = claims;
   next();
 }
-\nimport { logger } from '../lib/logger';

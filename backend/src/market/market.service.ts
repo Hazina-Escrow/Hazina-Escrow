@@ -1,4 +1,5 @@
 import { getCircuitBreaker, CircuitBreakerOpenError } from '../common/circuit-breaker';
+import { logger } from '../lib/logger';
 
 const coingeckoBreaker = getCircuitBreaker('coingecko', {
   failureThreshold: 4,
@@ -35,7 +36,9 @@ export class MarketService {
       if (error instanceof CircuitBreakerOpenError) {
         logger.warn(`[MarketService] ${error.message} — returning null for getPrice`);
       } else {
-        logger.error('[MarketService] getPrice error:', error);
+        logger.error(
+          `[MarketService] getPrice error: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
       return null;
     }
@@ -92,4 +95,3 @@ export class MarketService {
     }
   }
 }
-\nimport { logger } from '../lib/logger';

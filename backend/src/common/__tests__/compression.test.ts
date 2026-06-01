@@ -23,7 +23,10 @@ function rawParser(
 }
 
 // Type assertion to match supertest's expected parser signature
-const supertestRawParser = rawParser as unknown as (res: Response, cb: (err: Error | null, body: any) => void) => void;
+const supertestRawParser = rawParser as unknown as (
+  res: Response,
+  cb: (err: Error | null, body: unknown) => void,
+) => void;
 
 /** Build a minimal Express app with the compression middleware + test routes. */
 function buildApp(opts?: Parameters<typeof createCompressionMiddleware>[0]) {

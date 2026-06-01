@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { v4 as uuidv4 } from 'uuid';
 import { Dataset, Transaction, writeStore, readStore, Store } from './common/storage';
+import { logger } from './lib/logger';
 
 const DATA_TYPES = [
   'whale-wallets',
@@ -104,4 +105,3 @@ const seed = async () => {
 };
 
 seed().catch(logger.error);
-\nimport { logger } from './lib/logger';

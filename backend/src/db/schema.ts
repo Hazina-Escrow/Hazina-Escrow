@@ -1,13 +1,14 @@
 import { sql } from 'drizzle-orm';
 import { pgTable, text, integer, numeric, boolean, index } from 'drizzle-orm/pg-core';
-import { sqliteTable, text as sqliteText, integer as sqliteInteger, index as sqliteIndex } from 'drizzle-orm/sqlite-core';
+import {
+  sqliteTable,
+  text as sqliteText,
+  integer as sqliteInteger,
+  index as sqliteIndex,
+} from 'drizzle-orm/sqlite-core';
 
 // ── PostgreSQL tables ────────────────────────────────────────────────────────
 
-const getSchemaObjects = () => {
-  if (isPostgres) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { pgTable, text, integer, numeric, boolean } = require('drizzle-orm/pg-core');
 export const datasets = pgTable(
   'datasets',
   {
@@ -22,13 +23,12 @@ export const datasets = pgTable(
     totalEarned: numeric('total_earned').notNull().default('0'),
     createdAt: text('created_at').notNull(),
   },
-  (table) => ({
+  table => ({
     typeIdx: index('datasets_type_idx').on(table.type),
     sellerWalletIdx: index('datasets_seller_wallet_idx').on(table.sellerWallet),
     createdAtIdx: index('datasets_created_at_idx').on(table.createdAt),
   }),
 );
- main
 
 export const transactions = pgTable('transactions', {
   id: text('id').primaryKey(),
@@ -45,28 +45,13 @@ export const webhooks = pgTable('webhooks', {
   sellerWallet: text('seller_wallet').notNull(),
   url: text('url').notNull(),
   secret: text('secret').notNull(),
-  events: text('events').array().notNull().default(sql`'{}'`),
+  events: text('events')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
   active: boolean('active').notNull().default(true),
   createdAt: text('created_at').notNull(),
 });
-
-    const webhooks = pgTable('webhooks', {
-      id: text('id').primaryKey(),
-      sellerWallet: text('seller_wallet').notNull(),
-      url: text('url').notNull(),
-      secret: text('secret').notNull(),
-      events: text('events')
-        .array()
-        .notNull()
-        .default(sql`'{}'`),
-      active: boolean('active').notNull().default(true),
-      createdAt: text('created_at').notNull(),
-    });
-
-    return { datasets, transactions, webhooks };
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { sqliteTable, text, integer } = require('drizzle-orm/sqlite-core');
 
 // ── SQLite tables (used when DATABASE_URL is not postgres) ───────────────────
 
@@ -84,7 +69,7 @@ export const datasetsSqlite = sqliteTable(
     totalEarned: sqliteText('total_earned').notNull().default('0'),
     createdAt: sqliteText('created_at').notNull(),
   },
-  (table) => ({
+  table => ({
     typeIdx: sqliteIndex('datasets_type_idx').on(table.type),
     sellerWalletIdx: sqliteIndex('datasets_seller_wallet_idx').on(table.sellerWallet),
     createdAtIdx: sqliteIndex('datasets_created_at_idx').on(table.createdAt),

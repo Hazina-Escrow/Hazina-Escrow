@@ -1,16 +1,16 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import { X, ChevronRight, ChevronLeft } from "lucide-react";
-import { useI18n } from "../i18n";
+import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
+import { X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 interface TourStep {
   target: string;
   title: string;
   description: string;
-  placement?: "top" | "bottom" | "left" | "right";
+  placement?: 'top' | 'bottom' | 'left' | 'right';
 }
 
-const TOUR_KEY = "hazina-tour-completed";
+const TOUR_KEY = 'hazina-tour-completed';
 
 export default function OnboardingTour() {
   const { t } = useI18n();
@@ -18,36 +18,39 @@ export default function OnboardingTour() {
   const [currentStep, setCurrentStep] = useState(0);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const location = useLocation();
-  const tourSteps: TourStep[] = [
-    {
-      target: '[data-tour="marketplace-link"]',
-      title: t("onboarding.steps.marketplace.title"),
-      description: t("onboarding.steps.marketplace.description"),
-      placement: "bottom",
-    },
-    {
-      target: '[data-tour="sell-link"]',
-      title: t("onboarding.steps.sell.title"),
-      description: t("onboarding.steps.sell.description"),
-      placement: "bottom",
-    },
-    {
-      target: '[data-tour="dashboard-link"]',
-      title: t("onboarding.steps.dashboard.title"),
-      description: t("onboarding.steps.dashboard.description"),
-      placement: "bottom",
-    },
-    {
-      target: '[data-tour="hero-cta"]',
-      title: t("onboarding.steps.cta.title"),
-      description: t("onboarding.steps.cta.description"),
-      placement: "top",
-    },
-  ];
+  const tourSteps: TourStep[] = useMemo(
+    () => [
+      {
+        target: '[data-tour="marketplace-link"]',
+        title: t('onboarding.steps.marketplace.title'),
+        description: t('onboarding.steps.marketplace.description'),
+        placement: 'bottom',
+      },
+      {
+        target: '[data-tour="sell-link"]',
+        title: t('onboarding.steps.sell.title'),
+        description: t('onboarding.steps.sell.description'),
+        placement: 'bottom',
+      },
+      {
+        target: '[data-tour="dashboard-link"]',
+        title: t('onboarding.steps.dashboard.title'),
+        description: t('onboarding.steps.dashboard.description'),
+        placement: 'bottom',
+      },
+      {
+        target: '[data-tour="hero-cta"]',
+        title: t('onboarding.steps.cta.title'),
+        description: t('onboarding.steps.cta.description'),
+        placement: 'top',
+      },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     // Only show tour on landing page and if not completed before
-    if (location.pathname === "/" && !localStorage.getItem(TOUR_KEY)) {
+    if (location.pathname === '/' && !localStorage.getItem(TOUR_KEY)) {
       const timer = setTimeout(() => setIsActive(true), 1500);
       return () => clearTimeout(timer);
     }
@@ -62,14 +65,14 @@ export default function OnboardingTour() {
       const element = document.querySelector(step.target);
       if (element) {
         const rect = element.getBoundingClientRect();
-        const placement = step.placement || "bottom";
+        const placement = step.placement || 'bottom';
 
         let top = 0;
-        let left = rect.left + rect.width / 2;
+        const left = rect.left + rect.width / 2;
 
-        if (placement === "bottom") {
+        if (placement === 'bottom') {
           top = rect.bottom + 16;
-        } else if (placement === "top") {
+        } else if (placement === 'top') {
           top = rect.top - 16;
         }
 
@@ -78,12 +81,12 @@ export default function OnboardingTour() {
     };
 
     updatePosition();
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition);
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition);
 
     return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition);
     };
   }, [isActive, currentStep, tourSteps]);
 
@@ -103,7 +106,7 @@ export default function OnboardingTour() {
 
   const handleClose = () => {
     setIsActive(false);
-    localStorage.setItem(TOUR_KEY, "true");
+    localStorage.setItem(TOUR_KEY, 'true');
   };
 
   if (!isActive) return null;
@@ -115,10 +118,7 @@ export default function OnboardingTour() {
   return (
     <>
       {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-void/80 backdrop-blur-sm z-[9998]"
-        onClick={handleClose}
-      />
+      <div className="fixed inset-0 bg-void/80 backdrop-blur-sm z-[9998]" onClick={handleClose} />
 
       {/* Tooltip */}
       <div
@@ -126,17 +126,12 @@ export default function OnboardingTour() {
         style={{
           top: `${position.top}px`,
           left: `${position.left}px`,
-          transform:
-            step?.placement === "top"
-              ? "translate(-50%, -100%)"
-              : "translate(-50%, 0)",
+          transform: step?.placement === 'top' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
         }}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
-          <h3 className="font-display font-semibold text-lg text-foreground pr-4">
-            {step?.title}
-          </h3>
+          <h3 className="font-display font-semibold text-lg text-foreground pr-4">{step?.title}</h3>
           <button
             onClick={handleClose}
             className="text-muted hover:text-foreground transition-colors flex-shrink-0"
@@ -157,10 +152,10 @@ export default function OnboardingTour() {
               key={i}
               className={`h-1 rounded-full transition-all duration-300 ${
                 i === currentStep
-                  ? "w-6 bg-gold"
+                  ? 'w-6 bg-gold'
                   : i < currentStep
-                    ? "w-2 bg-gold/40"
-                    : "w-2 bg-border"
+                    ? 'w-2 bg-gold/40'
+                    : 'w-2 bg-border'
               }`}
             />
           ))}
@@ -172,7 +167,7 @@ export default function OnboardingTour() {
             onClick={handleClose}
             className="text-sm text-muted hover:text-foreground font-body transition-colors"
           >
-            {t("onboarding.skip")}
+            {t('onboarding.skip')}
           </button>
           <div className="flex items-center gap-2">
             {!isFirst && (
@@ -181,14 +176,14 @@ export default function OnboardingTour() {
                 className="btn-ghost px-4 py-2 text-sm flex items-center gap-1"
               >
                 <ChevronLeft className="w-4 h-4" />
-                {t("onboarding.back")}
+                {t('onboarding.back')}
               </button>
             )}
             <button
               onClick={handleNext}
               className="btn-gold px-4 py-2 text-sm flex items-center gap-1"
             >
-              {isLast ? t("onboarding.finish") : t("onboarding.next")}
+              {isLast ? t('onboarding.finish') : t('onboarding.next')}
               {!isLast && <ChevronRight className="w-4 h-4" />}
             </button>
           </div>

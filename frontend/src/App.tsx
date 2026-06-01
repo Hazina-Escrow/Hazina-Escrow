@@ -11,6 +11,7 @@ import AgentPage from "./pages/AgentPage";
 import TermsPage from "./pages/TermsPage";
 import { useI18n } from "./i18n";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { ToastProvider } from "./components/ui/ToastProvider";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -24,6 +25,7 @@ import { Helmet } from "react-helmet-async";
 
 export default function App() {
   return (
+    <ToastProvider>
     <BrowserRouter>
       <Helmet
         defaultTitle="Hazina — Data Escrow Marketplace"
@@ -52,6 +54,7 @@ export default function App() {
         </Routes>
       </main>
     </BrowserRouter>
+    </ToastProvider>
   );
 }
 

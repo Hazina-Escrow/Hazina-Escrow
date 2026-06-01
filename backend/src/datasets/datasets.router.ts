@@ -1,28 +1,24 @@
 import { Router, Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { StrKey } from '@stellar/stellar-sdk';
+import { v4 as uuidv4 } from 'uuid';
+import { sanitizeUserText } from '../common/sanitize';
+import { validateBody } from '../common/validate';
 import {
+  addDataset,
   getAllDatasets,
   getDataset,
-  addDataset,
   getTransactions,
   getTransactionsCount,
-} from './datasets.repository';
-import type { Dataset } from '../common/storage';
-import { validateBody } from '../common/validate';
-import { sanitizeUserText } from '../common/sanitize';
+  type Dataset,
+} from '../common/storage';
+import { requireSellerJwt, requireSellerMutationAuth } from '../common/auth.middleware';
+import { domainMetrics } from '../common/datadog';
 import { notifySeller } from '../webhooks/webhook.service';
-<<<<<<< fullstack/262-266-267-268-core-improvements
-import { requireSellerMutationAuth, requireSellerJwt } from '../common/auth.middleware';
-const MAX_DATA_BYTES = 500 * 1024;
-=======
-import { requireApiKey } from '../common/auth.middleware';
 
-const STELLAR_ADDRESS_REGEX = /^G[A-Z2-7]{55}$/;
 const MAX_DATA_KB = 500;
 const MAX_DATA_BYTES = MAX_DATA_KB * 1024;
->>>>>>> main
+
 const makeSanitizedTextField = (fieldName: string, maxLength: number) =>
   z
     .string()
@@ -82,7 +78,10 @@ const createDatasetSchema = z.object({
   description: makeSanitizedTextField('description', 2000),
   type: makeSanitizedTextField('type', 100),
   pricePerQuery: z.coerce.number().finite().positive(),
-  sellerWallet: z.string().trim().refine(StrKey.isValidEd25519PublicKey, { message: 'Invalid Stellar address' }),
+  sellerWallet: z
+    .string()
+    .trim()
+    .refine(StrKey.isValidEd25519PublicKey, { message: 'Invalid Stellar address' }),
   data: dataField,
 });
 
@@ -226,8 +225,7 @@ datasetsRouter.get('/', async (req: Request, res: Response) => {
   const parsedPage = Number.parseInt(req.query.page as string, 10);
   const parsedLimit = Number.parseInt(req.query.limit as string, 10);
   const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-  const limit =
-    Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 100) : 20;
+  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 100) : 20;
   const search = ((req.query.search as string) || '').toLowerCase();
   const types = [req.query.type]
     .flat()

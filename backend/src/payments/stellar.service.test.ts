@@ -190,7 +190,7 @@ describe('verifyStellarPayment', () => {
         expectedAmount: 1,
         destinationAddress,
       }),
-    ).rejects.toThrow('network unavailable');
+    ).rejects.toThrow('Stellar network error');
   });
 
   // ── Timeout tests ──────────────────────────────────────────────────────────

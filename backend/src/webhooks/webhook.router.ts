@@ -52,7 +52,7 @@ const webhookUrlField = z
 const webhookEventsField = z
   .array(z.string())
   .superRefine((events, ctx) => {
-    const invalid = events.filter((e) => !VALID_EVENTS.includes(e as WebhookEvent));
+    const invalid = events.filter(e => !VALID_EVENTS.includes(e as WebhookEvent));
     if (invalid.length > 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -60,7 +60,7 @@ const webhookEventsField = z
       });
     }
   })
-  .transform((events) => events as WebhookEvent[]);
+  .transform(events => events as WebhookEvent[]);
 
 const createWebhookSchema = z.object({
   sellerWallet: z
@@ -81,7 +81,7 @@ const updateWebhookSchema = z
     active: z.boolean().optional(),
   })
   .refine(
-    (data) =>
+    data =>
       data.url !== undefined ||
       data.secret !== undefined ||
       data.events !== undefined ||
@@ -216,11 +216,15 @@ webhooksRouter.post('/:id/test', requireApiKey, async (req: Request, res: Respon
 });
 
 // PATCH /api/webhooks/:id — update webhook (url, secret, events, active)
-webhooksRouter.patch('/:id', requireApiKey, validateBody(updateWebhookSchema), async (req: Request, res: Response) => {
-  const webhook = await getWebhookById(req.params.id);
-  if (!webhook) {
-    return res.status(404).json({ error: 'Webhook not found' });
-  }
+webhooksRouter.patch(
+  '/:id',
+  requireApiKey,
+  validateBody(updateWebhookSchema),
+  async (req: Request, res: Response) => {
+    const webhook = await getWebhookById(req.params.id);
+    if (!webhook) {
+      return res.status(404).json({ error: 'Webhook not found' });
+    }
 
   const updates = req.body as z.infer<typeof updateWebhookSchema>;
   if (updates.secret !== undefined) {
@@ -231,7 +235,7 @@ webhooksRouter.patch('/:id', requireApiKey, validateBody(updateWebhookSchema), a
     return res.status(500).json({ error: 'Failed to update webhook' });
   }
 
-  const { secret: _secret, ...rest } = updated;
-  return res.json({ success: true, webhook: rest });
-});
-\nimport { logger } from '../lib/logger';
+    const { secret: _secret, ...rest } = updated;
+    return res.json({ success: true, webhook: rest });
+  },
+);

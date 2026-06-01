@@ -98,6 +98,11 @@ export const sw: EnglishMessages = {
       imageNotSupported: 'Picha haisisimamiwi',
     },
   },
+  websocket: {
+    connected: 'Moja kwa moja',
+    disconnected: 'Nje ya mtandao',
+    error: 'Hitilafu ya muunganisho',
+  },
   nav: {
     marketplace: 'Soko',
     agent: 'Wakala wa AI',
@@ -238,6 +243,7 @@ export const sw: EnglishMessages = {
       listingLiveBody: '{name} sasa ipo sokoni.',
       listingLiveRevenue:
         'Wanunuzi wanaweza kuuliza kwa {price} USDC kila moja. 95% huenda moja kwa moja kwenye wallet yako ya Stellar.',
+      draftRestored: 'Rasimu ilirejeziwa kutoka kwa kipindi chako kilichopita',
     },
     eyebrow: 'Pata mapato pasivu',
     title: 'Orodhesha data yako',
