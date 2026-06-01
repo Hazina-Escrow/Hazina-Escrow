@@ -20,6 +20,13 @@ const generateStellarAddress = () => {
 };
 
 const seed = async () => {
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      '[seed] Refusing to run in production (NODE_ENV=production). Aborting to protect live data.',
+    );
+    process.exit(1);
+  }
+
   const clean = process.argv.includes('--clean');
   logger.info(
     `Starting seeding... ${clean ? '(Cleaning existing data)' : '(Appending to existing data)'}`,
