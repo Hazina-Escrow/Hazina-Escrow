@@ -1,4 +1,5 @@
 import tracer from 'dd-trace';
+import { logger } from '../lib/logger';
 
 type MetricTagValue = string | number | boolean | null | undefined;
 type MetricTags = Record<string, MetricTagValue>;
@@ -40,7 +41,7 @@ export function incrementMetric(metric: string, value = 1, tags?: MetricTags): v
   try {
     dogstatsd()?.increment(metric, value, formatTags(tags));
   } catch (error) {
-    logger.warn('[Datadog] Failed to submit custom metric:', metric, error);
+    logger.warn({ metric, err: error }, '[Datadog] Failed to submit custom metric');
   }
 }
 
@@ -322,4 +323,3 @@ export function initializeDatadog(): void {
 }
 
 export { tracer };
-\nimport { logger } from '../lib/logger';

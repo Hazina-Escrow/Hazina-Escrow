@@ -7,7 +7,7 @@ vi.mock('../webhooks/webhook.service', () => ({
   notifySeller: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('./datasets.repository', () => ({
+vi.mock('../common/storage', () => ({
   getAllDatasets: vi.fn(),
   getDataset: vi.fn(),
   addDataset: vi.fn(),
@@ -30,7 +30,7 @@ import {
   addDataset,
   getTransactions,
   getTransactionsCount,
-} from './datasets.repository';
+} from '../common/storage';
 import type { Dataset, Transaction } from '../common/storage';
 
 const SELLER_A = `G${'A'.repeat(55)}`;
@@ -321,7 +321,10 @@ describe('wallet address validation on POST /api/datasets', () => {
     const res = await request(app)
       .post('/api/v1/datasets')
       .set('Authorization', 'Bearer test-api-key')
-      .send({ ...validDatasetBody, sellerWallet: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFL' });
+      .send({
+        ...validDatasetBody,
+        sellerWallet: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFL',
+      });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('Invalid Stellar address');
@@ -333,7 +336,10 @@ describe('wallet address validation on POST /api/datasets', () => {
     const res = await request(app)
       .post('/api/v1/datasets')
       .set('Authorization', 'Bearer test-api-key')
-      .send({ ...validDatasetBody, sellerWallet: 'XBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5' });
+      .send({
+        ...validDatasetBody,
+        sellerWallet: 'XBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+      });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('Invalid Stellar address');
@@ -345,7 +351,10 @@ describe('wallet address validation on POST /api/datasets', () => {
     const res = await request(app)
       .post('/api/v1/datasets')
       .set('Authorization', 'Bearer test-api-key')
-      .send({ ...validDatasetBody, sellerWallet: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' });
+      .send({
+        ...validDatasetBody,
+        sellerWallet: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('Invalid Stellar address');
@@ -354,7 +363,10 @@ describe('wallet address validation on POST /api/datasets', () => {
   it('calls StrKey.isValidEd25519PublicKey with the submitted wallet address', async () => {
     mockIsValidStellarAddress.mockReturnValue(true);
 
-    await request(app).post('/api/v1/datasets').set('Authorization', 'Bearer test-api-key').send(validDatasetBody);
+    await request(app)
+      .post('/api/v1/datasets')
+      .set('Authorization', 'Bearer test-api-key')
+      .send(validDatasetBody);
 
     expect(mockIsValidStellarAddress).toHaveBeenCalledWith(VALID_WALLET);
   });

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   Database,
@@ -12,19 +12,17 @@ import {
   Globe,
   Activity,
   Upload,
-} from "lucide-react";
-import { api, DatasetMeta } from "../lib/api";
-import { useCountUp } from "../hooks/useCountUp";
-import DatasetCard from "../components/ui/DatasetCard";
-import { DatasetCardSkeleton } from "../components/ui/SkeletonLoader";
-import clsx from "clsx";
-import { useI18n } from "../i18n";
+} from 'lucide-react';
+import { api, DatasetMeta } from '../lib/api';
+import { useCountUp } from '../hooks/useCountUp';
+import DatasetCard from '../components/ui/DatasetCard';
+import { DatasetCardSkeleton } from '../components/ui/SkeletonLoader';
+import clsx from 'clsx';
+import { useI18n } from '../i18n';
 
-const PREFERS_REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+const PREFERS_REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 const PARTICLE_COUNT =
-  typeof window !== "undefined" && window.matchMedia(PREFERS_REDUCED_MOTION_QUERY).matches
-    ? 0
-    : 30;
+  typeof window !== 'undefined' && window.matchMedia(PREFERS_REDUCED_MOTION_QUERY).matches ? 0 : 30;
 const PARTICLE_SIZE = 4;
 const PARTICLE_ANIMATION_MIN_DURATION = 6;
 const PARTICLE_ANIMATION_DURATION_RANGE = 6;
@@ -46,8 +44,8 @@ function Particle({ style }: { style: React.CSSProperties }) {
       style={{
         width: PARTICLE_SIZE,
         height: PARTICLE_SIZE,
-        background: "rgba(201,168,76,0.6)",
-        boxShadow: "0 0 8px rgba(201,168,76,0.8)",
+        background: 'rgba(201,168,76,0.6)',
+        boxShadow: '0 0 8px rgba(201,168,76,0.8)',
         animation: `float ${PARTICLE_ANIMATION_MIN_DURATION + Math.random() * PARTICLE_ANIMATION_DURATION_RANGE}s ease-in-out infinite`,
         animationDelay: `${Math.random() * PARTICLE_ANIMATION_DELAY_MAX}s`,
         ...style,
@@ -60,10 +58,10 @@ function Particle({ style }: { style: React.CSSProperties }) {
 function StatCard({
   value,
   label,
-  prefix = "",
-  suffix = "",
+  prefix = '',
+  suffix = '',
   decimals = 0,
-  locale = "en-US",
+  locale = 'en-US',
 }: {
   value: number;
   label: string;
@@ -77,9 +75,7 @@ function StatCard({
     <div className="glass-card-gold px-8 py-6 text-center flex-1 min-w-[160px]">
       <div className="stat-number text-3xl md:text-4xl text-gold-gradient mb-1">
         {prefix}
-        {decimals > 0
-          ? animated.toFixed(decimals)
-          : Math.round(animated).toLocaleString(locale)}
+        {decimals > 0 ? animated.toFixed(decimals) : Math.round(animated).toLocaleString(locale)}
         {suffix}
       </div>
       <p className="text-sm text-foreground-muted font-body">{label}</p>
@@ -109,9 +105,7 @@ function Step({
           {number}
         </div>
       </div>
-      <h3 className="font-display font-semibold text-lg text-foreground mb-2">
-        {title}
-      </h3>
+      <h3 className="font-display font-semibold text-lg text-foreground mb-2">{title}</h3>
       <p className="text-sm text-foreground-muted font-body leading-relaxed max-w-[220px]">
         {desc}
       </p>
@@ -133,31 +127,44 @@ export default function LandingPage() {
   const [featuredError, setFeaturedError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  const retry = () => setRetryCount((c) => c + 1);
+  const retry = () => setRetryCount(c => c + 1);
 
   useEffect(() => {
     setFeaturedLoading(true);
     api
       .getStats()
-      .then((data) => {
-        setStats(data);
+      .then(data => {
+        setStats(data as { totalDatasets: number; totalQueries: number; totalUsdcEarned: number });
         setStatsError(null);
       })
       .catch((err: unknown) => {
-        setStatsError(
-          err instanceof Error ? err.message : "Failed to load statistics.",
-        );
+        setStatsError(err instanceof Error ? err.message : 'Failed to load statistics.');
       });
     api
       .getDatasets()
-      .then((ds) => {
-        setFeatured(ds.data.slice(0, FEATURED_DATASET_COUNT));
+      .then(ds => {
+        setFeatured(
+          (
+            ds as {
+              data: {
+                id: string;
+                name: string;
+                description: string;
+                type: string;
+                pricePerQuery: number;
+                sellerWallet: string;
+                queriesServed: number;
+                totalEarned: number;
+                createdAt: string;
+                thumbnail?: string | undefined;
+              }[];
+            }
+          ).data.slice(0, FEATURED_DATASET_COUNT),
+        );
         setFeaturedError(null);
       })
       .catch((err: unknown) => {
-        setFeaturedError(
-          err instanceof Error ? err.message : "Failed to load featured datasets.",
-        );
+        setFeaturedError(err instanceof Error ? err.message : 'Failed to load featured datasets.');
       })
       .finally(() => setFeaturedLoading(false));
     const timer = setTimeout(() => setLoaded(true), HERO_FADE_IN_DELAY_MS);
@@ -187,13 +194,13 @@ export default function LandingPage() {
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              "radial-gradient(ellipse 70% 50% at 50% 40%, rgba(201,168,76,0.07) 0%, transparent 70%)",
+              'radial-gradient(ellipse 70% 50% at 50% 40%, rgba(201,168,76,0.07) 0%, transparent 70%)',
           }}
         />
 
         {/* Floating particles */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {particles.map((p) => (
+          {particles.map(p => (
             <Particle key={p.key} style={p.style} />
           ))}
         </div>
@@ -201,30 +208,30 @@ export default function LandingPage() {
         {/* Hero content */}
         <div
           className={clsx(
-            "relative z-10 text-center px-4 max-w-5xl mx-auto transition-all duration-700",
-            loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8",
+            'relative z-10 text-center px-4 max-w-5xl mx-auto transition-all duration-700',
+            loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8',
           )}
         >
           {/* Eyebrow */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-gold/25 bg-gold/5 mb-8">
             <Star className="w-3.5 h-3.5 text-gold" />
             <span className="text-xs font-body font-medium text-gold tracking-widest uppercase">
-              {t("landing.eyebrow")}
+              {t('landing.eyebrow')}
             </span>
           </div>
 
           {/* Headline */}
           <h1 className="font-display text-5xl md:text-7xl lg:text-8xl font-bold text-foreground mb-6 leading-[1.05]">
-            {t("landing.headline.lineOne")}
+            {t('landing.headline.lineOne')}
             <br />
-            <span className="text-gold-gradient">{t("landing.headline.lineTwo")}</span>
+            <span className="text-gold-gradient">{t('landing.headline.lineTwo')}</span>
             <br />
-            {t("landing.headline.lineThree")}
+            {t('landing.headline.lineThree')}
           </h1>
 
           {/* Sub */}
           <p className="text-lg md:text-xl text-foreground-muted font-body max-w-2xl mx-auto mb-12 leading-relaxed">
-            {t("landing.subheading")}
+            {t('landing.subheading')}
           </p>
 
           {/* CTAs */}
@@ -236,14 +243,14 @@ export default function LandingPage() {
               to="/sell"
               className="btn-gold text-base px-8 py-4 flex items-center gap-2 shadow-gold-md"
             >
-              {t("common.actions.listData")}
+              {t('common.actions.listData')}
               <ArrowRight className="w-5 h-5" />
             </Link>
             <Link
               to="/marketplace"
               className="btn-ghost text-base px-8 py-4 flex items-center gap-2"
             >
-              {t("common.actions.browseMarketplace")}
+              {t('common.actions.browseMarketplace')}
               <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
@@ -251,13 +258,8 @@ export default function LandingPage() {
           {/* Stats error notice */}
           {statsError && (
             <div className="flex flex-col items-center gap-2 mb-2">
-              <p className="text-xs text-red-400 font-body text-center opacity-75">
-                {statsError}
-              </p>
-              <button
-                onClick={retry}
-                className="text-xs text-gold hover:underline font-body"
-              >
+              <p className="text-xs text-red-400 font-body text-center opacity-75">{statsError}</p>
+              <button onClick={retry} className="text-xs text-gold hover:underline font-body">
                 Retry
               </button>
             </div>
@@ -267,17 +269,17 @@ export default function LandingPage() {
           <div className="flex flex-wrap justify-center gap-4">
             <StatCard
               value={stats.totalDatasets}
-              label={t("landing.stats.datasetsListed")}
+              label={t('landing.stats.datasetsListed')}
               locale={locale}
             />
             <StatCard
               value={stats.totalQueries}
-              label={t("landing.stats.queriesSold")}
+              label={t('landing.stats.queriesSold')}
               locale={locale}
             />
             <StatCard
               value={stats.totalUsdcEarned}
-              label={t("landing.stats.usdcEarned")}
+              label={t('landing.stats.usdcEarned')}
               prefix="$"
               decimals={2}
               locale={locale}
@@ -298,13 +300,13 @@ export default function LandingPage() {
         <div className="relative max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
             <p className="text-gold text-sm font-body font-medium tracking-widest uppercase mb-3">
-              {t("landing.flow.eyebrow")}
+              {t('landing.flow.eyebrow')}
             </p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-foreground mb-4">
-              {t("landing.flow.title")}
+              {t('landing.flow.title')}
             </h2>
             <p className="text-foreground-muted font-body max-w-xl mx-auto">
-              {t("landing.flow.body")}
+              {t('landing.flow.body')}
             </p>
           </div>
 
@@ -315,20 +317,20 @@ export default function LandingPage() {
             <Step
               number="1"
               icon={Upload}
-              title={t("landing.flow.steps.upload.title")}
-              desc={t("landing.flow.steps.upload.description")}
+              title={t('landing.flow.steps.upload.title')}
+              desc={t('landing.flow.steps.upload.description')}
             />
             <Step
               number="2"
               icon={Shield}
-              title={t("landing.flow.steps.escrow.title")}
-              desc={t("landing.flow.steps.escrow.description")}
+              title={t('landing.flow.steps.escrow.title')}
+              desc={t('landing.flow.steps.escrow.description')}
             />
             <Step
               number="3"
               icon={TrendingUp}
-              title={t("landing.flow.steps.earn.title")}
-              desc={t("landing.flow.steps.earn.description")}
+              title={t('landing.flow.steps.earn.title')}
+              desc={t('landing.flow.steps.earn.description')}
             />
           </div>
         </div>
@@ -340,36 +342,36 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <p className="text-gold text-sm font-body font-medium tracking-widest uppercase mb-3">
-                {t("landing.features.eyebrow")}
+                {t('landing.features.eyebrow')}
               </p>
               <h2 className="font-display text-4xl md:text-5xl font-bold text-foreground mb-6 leading-tight">
-                {t("landing.features.titleStart")}{" "}
-                <em className="text-gold not-italic">{t("landing.features.titleAccent")}</em>
+                {t('landing.features.titleStart')}{' '}
+                <em className="text-gold not-italic">{t('landing.features.titleAccent')}</em>
               </h2>
               <p className="text-foreground-muted font-body text-lg leading-relaxed mb-8">
-                {t("landing.features.body")}
+                {t('landing.features.body')}
               </p>
               <div className="flex flex-col gap-4">
                 {[
                   {
                     icon: Zap,
-                    label: t("landing.features.items.micropayments.label"),
-                    desc: t("landing.features.items.micropayments.description"),
+                    label: t('landing.features.items.micropayments.label'),
+                    desc: t('landing.features.items.micropayments.description'),
                   },
                   {
                     icon: Shield,
-                    label: t("landing.features.items.escrow.label"),
-                    desc: t("landing.features.items.escrow.description"),
+                    label: t('landing.features.items.escrow.label'),
+                    desc: t('landing.features.items.escrow.description'),
                   },
                   {
                     icon: Globe,
-                    label: t("landing.features.items.marketplace.label"),
-                    desc: t("landing.features.items.marketplace.description"),
+                    label: t('landing.features.items.marketplace.label'),
+                    desc: t('landing.features.items.marketplace.description'),
                   },
                   {
                     icon: Activity,
-                    label: t("landing.features.items.earnings.label"),
-                    desc: t("landing.features.items.earnings.description"),
+                    label: t('landing.features.items.earnings.label'),
+                    desc: t('landing.features.items.earnings.description'),
                   },
                 ].map(({ icon: Icon, label, desc }) => (
                   <div key={label} className="flex items-start gap-4">
@@ -380,9 +382,7 @@ export default function LandingPage() {
                       <p className="font-body font-semibold text-foreground text-sm mb-0.5">
                         {label}
                       </p>
-                      <p className="font-body text-sm text-foreground-muted">
-                        {desc}
-                      </p>
+                      <p className="font-body text-sm text-foreground-muted">{desc}</p>
                     </div>
                   </div>
                 ))}
@@ -395,19 +395,19 @@ export default function LandingPage() {
                 {/* Outer ring */}
                 <div
                   className="absolute inset-0 rounded-full border border-gold/15 animate-spin-slow"
-                  style={{ animationDuration: "20s" }}
+                  style={{ animationDuration: '20s' }}
                 />
                 {/* Middle ring */}
                 <div
                   className="absolute inset-8 rounded-full border border-gold/20"
-                  style={{ animation: "spin 15s linear infinite reverse" }}
+                  style={{ animation: 'spin 15s linear infinite reverse' }}
                 />
                 {/* Inner glow */}
                 <div className="absolute inset-16 rounded-full bg-gold/5 border border-gold/30 flex items-center justify-center">
                   <div className="text-center">
                     <Lock className="w-10 h-10 text-gold mx-auto mb-2" />
                     <p className="text-xs text-gold font-body font-medium">
-                      {t("landing.features.vaultSecured")}
+                      {t('landing.features.vaultSecured')}
                     </p>
                   </div>
                 </div>
@@ -419,7 +419,7 @@ export default function LandingPage() {
                     style={{
                       top: `calc(50% + ${Math.sin((deg * Math.PI) / 180) * ORBIT_DOT_RADIUS}px - ${ORBIT_DOT_SIZE + 2}px)`,
                       left: `calc(50% + ${Math.cos((deg * Math.PI) / 180) * ORBIT_DOT_RADIUS}px - ${ORBIT_DOT_SIZE + 2}px)`,
-                      boxShadow: "0 0 8px rgba(201,168,76,0.8)",
+                      boxShadow: '0 0 8px rgba(201,168,76,0.8)',
                       animation: `pulseGold ${ORBIT_DOT_BASE_DURATION + i * ORBIT_DOT_STAGGER}s ease-in-out infinite`,
                     }}
                   />
@@ -435,10 +435,7 @@ export default function LandingPage() {
         <section className="py-6">
           <div className="max-w-6xl mx-auto px-4 text-center flex flex-col items-center gap-2">
             <p className="text-sm text-red-400 font-body opacity-75">{featuredError}</p>
-            <button
-              onClick={retry}
-              className="text-sm text-gold hover:underline font-body"
-            >
+            <button onClick={retry} className="text-sm text-gold hover:underline font-body">
               Retry
             </button>
           </div>
@@ -453,17 +450,17 @@ export default function LandingPage() {
             <div className="flex items-end justify-between mb-12">
               <div>
                 <p className="text-gold text-sm font-body font-medium tracking-widest uppercase mb-3">
-                  {t("landing.featured.eyebrow")}
+                  {t('landing.featured.eyebrow')}
                 </p>
                 <h2 className="font-display text-4xl md:text-5xl font-bold text-foreground">
-                  {t("landing.featured.title")}
+                  {t('landing.featured.title')}
                 </h2>
               </div>
               <Link
                 to="/marketplace"
                 className="hidden md:flex btn-ghost items-center gap-2 text-sm"
               >
-                {t("common.actions.viewAll")}
+                {t('common.actions.viewAll')}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -473,9 +470,7 @@ export default function LandingPage() {
                 ? Array.from({ length: FEATURED_DATASET_COUNT }).map((_, i) => (
                     <DatasetCardSkeleton key={i} />
                   ))
-                : featured.map((ds) => (
-                    <DatasetCard key={ds.id} dataset={ds} onBuy={() => {}} />
-                  ))}
+                : featured.map(ds => <DatasetCard key={ds.id} dataset={ds} onBuy={() => {}} />)}
             </div>
 
             {!featuredLoading && (
@@ -485,7 +480,7 @@ export default function LandingPage() {
                   className="btn-gold text-base px-8 py-4 inline-flex items-center gap-2"
                 >
                   <Database className="w-5 h-5" />
-                  {t("landing.featured.browseAll")}
+                  {t('landing.featured.browseAll')}
                 </Link>
               </div>
             )}
@@ -500,30 +495,28 @@ export default function LandingPage() {
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 60% 70% at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 70%)",
+              'radial-gradient(ellipse 60% 70% at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 70%)',
           }}
         />
         <div className="relative max-w-3xl mx-auto px-4 text-center">
           <h2 className="font-display text-4xl md:text-5xl font-bold text-foreground mb-6">
-            {t("landing.cta.titleStart")}{" "}
-            <span className="text-gold-gradient">{t("landing.cta.titleAccent")}</span>
+            {t('landing.cta.titleStart')}{' '}
+            <span className="text-gold-gradient">{t('landing.cta.titleAccent')}</span>
           </h2>
-          <p className="text-foreground-muted font-body text-lg mb-10">
-            {t("landing.cta.body")}
-          </p>
+          <p className="text-foreground-muted font-body text-lg mb-10">{t('landing.cta.body')}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/sell"
               className="btn-gold text-base px-10 py-4 flex items-center justify-center gap-2 shadow-gold-lg"
             >
-              {t("common.actions.startSellingNow")}
+              {t('common.actions.startSellingNow')}
               <ArrowRight className="w-5 h-5" />
             </Link>
             <Link
               to="/marketplace"
               className="btn-ghost text-base px-8 py-4 flex items-center justify-center gap-2"
             >
-              {t("common.actions.exploreMarketplace")}
+              {t('common.actions.exploreMarketplace')}
             </Link>
           </div>
         </div>
@@ -536,31 +529,27 @@ export default function LandingPage() {
             <div className="w-8 h-8 rounded-xl bg-gold/10 border border-gold/30 flex items-center justify-center">
               <Database className="w-4 h-4 text-gold" />
             </div>
-            <span className="font-display font-semibold text-foreground">
-              {t("nav.brand")}
-            </span>
+            <span className="font-display font-semibold text-foreground">{t('nav.brand')}</span>
           </div>
-          <p className="text-xs text-muted-2 font-body">
-            {t("landing.footer.tagline")}
-          </p>
+          <p className="text-xs text-muted-2 font-body">{t('landing.footer.tagline')}</p>
           <div className="flex gap-6">
             <Link
               to="/marketplace"
               className="text-xs text-foreground-muted hover:text-gold transition-colors font-body"
             >
-              {t("nav.marketplace")}
+              {t('nav.marketplace')}
             </Link>
             <Link
               to="/sell"
               className="text-xs text-foreground-muted hover:text-gold transition-colors font-body"
             >
-              {t("nav.sell")}
+              {t('nav.sell')}
             </Link>
             <Link
               to="/dashboard"
               className="text-xs text-foreground-muted hover:text-gold transition-colors font-body"
             >
-              {t("nav.dashboard")}
+              {t('nav.dashboard')}
             </Link>
           </div>
         </div>

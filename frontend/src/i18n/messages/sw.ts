@@ -98,6 +98,11 @@ export const sw: EnglishMessages = {
       imageNotSupported: 'Picha haisisimamiwi',
     },
   },
+  websocket: {
+    connected: 'Moja kwa moja',
+    disconnected: 'Nje ya mtandao',
+    error: 'Hitilafu ya muunganisho',
+  },
   nav: {
     marketplace: 'Soko',
     agent: 'Wakala wa AI',

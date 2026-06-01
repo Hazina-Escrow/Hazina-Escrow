@@ -5,12 +5,13 @@ import {
   runResearchAgentDemo,
   SELLER_TYPES,
   AGENT_FEE_USDC,
+  IdempotentJobResult,
 } from './agent.service';
-import { runResearchAgent, runResearchAgentDemo, SELLER_TYPES, AGENT_FEE_USDC, IdempotentJobResult } from './agent.service';
 import { getAgentPublicKey } from './agent.wallet';
 import { validateBody } from '../common/validate';
 import { getAllDatasets } from '../common/storage';
 import { domainMetrics } from '../common/datadog';
+import { logger } from '../lib/logger';
 
 export const agentRouter = Router();
 
@@ -219,7 +220,7 @@ agentRouter.post('/research', validateBody(researchSchema), async (req: Request,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Research agent error';
-    logger.error('[Agent] Error:', err);
+    logger.error(`[Agent] Error: ${message}`);
 
     // Track job failure
     const reason = message.includes('Payment verification failed')
@@ -258,37 +259,37 @@ agentRouter.post(
       logger.info(`[Agent][Demo] New research job: "${query}"`);
       const job = await runResearchAgentDemo(query);
 
-    return res.json({
-      success: true,
-      demo: true,
-      jobId: job.jobId,
-      query: job.query,
-      report: stripRawAnalysis(job.report),
-      payments: {
-        humanPaid: 1,
-        currency: 'USDC',
-        network: 'Stellar (simulated)',
-        note: 'Demo mode — no real Stellar transactions. All payments simulated.',
-        sellerPayments: job.purchases.map((p) => ({
-          seller: p.datasetName,
-          type: p.type,
-          amount: p.amountPaid,
-          txHash: p.txHash,
-          onChain: false,
-        })),
-        totalSpent: job.totalSpent,
-        agentProfit: job.agentProfit,
-      },
-      meta: {
-        agentWallet: job.agentWallet ?? 'demo-wallet',
-        timestamp: job.timestamp,
-        datasetsQueried: job.purchases.length,
-      },
-    });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Research agent error';
-    logger.error('[Agent][Demo] Error:', err);
-    return res.status(500).json({ error: message });
-  }
-});
-\nimport { logger } from '../lib/logger';
+      return res.json({
+        success: true,
+        demo: true,
+        jobId: job.jobId,
+        query: job.query,
+        report: stripRawAnalysis(job.report),
+        payments: {
+          humanPaid: 1,
+          currency: 'USDC',
+          network: 'Stellar (simulated)',
+          note: 'Demo mode — no real Stellar transactions. All payments simulated.',
+          sellerPayments: job.purchases.map(p => ({
+            seller: p.datasetName,
+            type: p.type,
+            amount: p.amountPaid,
+            txHash: p.txHash,
+            onChain: false,
+          })),
+          totalSpent: job.totalSpent,
+          agentProfit: job.agentProfit,
+        },
+        meta: {
+          agentWallet: job.agentWallet ?? 'demo-wallet',
+          timestamp: job.timestamp,
+          datasetsQueried: job.purchases.length,
+        },
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Research agent error';
+      logger.error(`[Agent][Demo] Error: ${message}`);
+      return res.status(500).json({ error: message });
+    }
+  },
+);

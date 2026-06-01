@@ -98,6 +98,11 @@ export const es: EnglishMessages = {
       imageNotSupported: 'Imagen no soportada',
     },
   },
+  websocket: {
+    connected: 'En vivo',
+    disconnected: 'Sin conexión',
+    error: 'Error de conexión',
+  },
   nav: {
     marketplace: 'Marketplace',
     agent: 'Agente IA',

@@ -2,6 +2,7 @@ import * as StellarSdk from '@stellar/stellar-sdk';
 import { getCircuitBreaker } from '../common/circuit-breaker';
 import { domainMetrics } from '../common/datadog';
 import { HORIZON_URL, USDC_ISSUER } from '../lib/stellar.config';
+import { logger } from '../lib/logger';
 
 const server = new StellarSdk.Horizon.Server(HORIZON_URL);
 
@@ -204,8 +205,9 @@ export async function verifyStellarPayment(params: VerifyParams): Promise<Verify
     }
     // Log the full SDK error server-side but never forward it to the client —
     // Stellar errors can contain sequence numbers, account IDs, and other internals.
-    logger.error('[Stellar] Unexpected Horizon error:', err);
+    logger.error(
+      `[Stellar] Unexpected Horizon error: ${err instanceof Error ? err.message : String(err)}`,
+    );
     throw new Error('Stellar network error — please try again shortly');
   }
 }
-\nimport { logger } from '../lib/logger';

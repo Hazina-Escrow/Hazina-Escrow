@@ -9,6 +9,8 @@ import {
 } from '../common/storage';
 import { verifyStellarPayment } from '../payments/stellar.service';
 import { sendUsdcPayment, getAgentPublicKey } from './agent.wallet';
+import { logger } from '../lib/logger';
+import { domainMetrics } from '../common/datadog';
 import {
   synthesizeResearch,
   parseRiskTolerance,
@@ -16,7 +18,6 @@ import {
   ResearchReport,
 } from '../ai/research.service';
 import { notifySeller } from '../webhooks/webhook.service';
-import { domainMetrics } from '../common/datadog';
 
 // Fee the agent charges the human (1 USDC flat)
 export const AGENT_FEE_USDC = 1;
@@ -82,7 +83,7 @@ export async function runResearchAgent(
   //    cached result so callers can surface it as HTTP 200 rather than an error.
   if (await txHashUsed(humanTxHash)) {
     const existing = await getAgentJobByTxHash(humanTxHash);
-    
+
     if (!existing) {
       throw new Error('Transaction hash already used');
     }
@@ -272,7 +273,7 @@ async function _executeResearch(
     mode: demo ? 'demo' : 'real',
     status: 'completed',
     datasetsQueried: purchases.length,
-    totalSpent: totalSpent,
+    totalSpent,
   });
 
   return {
@@ -289,4 +290,3 @@ async function _executeResearch(
     timestamp: new Date().toISOString(),
   };
 }
-\nimport { logger } from '../lib/logger';

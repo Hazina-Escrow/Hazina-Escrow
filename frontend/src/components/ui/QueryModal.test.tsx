@@ -68,13 +68,11 @@ describe('QueryModal', () => {
       },
       transaction: {
         hash: 'demo-hash',
-        status: 'confirmed',
+        status: 'success',
         deliveryStatus: 'delivered',
         amount: 0.05,
         sellerReceived: 0.0475,
         platformFee: 0.0025,
-        status: 'success',
-        deliveryStatus: 'delivered',
       },
     });
 
@@ -123,13 +121,11 @@ describe('QueryModal', () => {
       },
       transaction: {
         hash: 'demo-hash',
-        status: 'confirmed',
+        status: 'success',
         deliveryStatus: 'delivered',
         amount: 0.05,
         sellerReceived: 0.0475,
         platformFee: 0.0025,
-        status: 'success',
-        deliveryStatus: 'delivered',
       },
     });
 

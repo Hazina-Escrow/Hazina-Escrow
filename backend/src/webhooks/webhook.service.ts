@@ -4,6 +4,7 @@ import http from 'http';
 import { URL } from 'url';
 import { WebhookEvent, WebhookSubscription, getWebhooksForSeller } from '../common/storage';
 import { getCircuitBreaker, CircuitBreakerOpenError } from '../common/circuit-breaker';
+import { logger } from '../lib/logger';
 
 /**
  * Each webhook subscriber gets its own circuit breaker keyed by subscription ID.
@@ -163,4 +164,3 @@ function sendRequest(
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-\nimport { logger } from '../lib/logger';
