@@ -253,13 +253,6 @@ export default function DashboardPage() {
   const filteredDatasets = walletFilter
     ? datasets.filter(d => d.sellerWallet === walletFilter)
     : datasets;
-  const { connected: wsConnected, error: wsError } = useTransactionWebSocket(
-    {
-      datasetIds: datasets.map((d: DatasetMeta) => d.id),
-      enabled: datasets.length > 0,
-    },
-    {},
-  );
 
   if (loading && !hasLoadedOnce) {
     return (
