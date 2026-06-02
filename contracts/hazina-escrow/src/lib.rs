@@ -16,6 +16,15 @@ const ESCROW_BUMP_LEDGERS: u32 = 518_400;
 // Min TTL threshold in ledgers (~24h) - only bump if remaining TTL is below this
 const ESCROW_MIN_TTL: u32 = 17_280;
 
+// Minimum lock amount in stroops (1 stroop = 0.0000001 USDC)
+const MIN_LOCK_AMOUNT: i128 = 10_000; // 0.001 USDC
+
+const MAX_BASIS_POINTS: u32 = 10_000;
+const MAX_EXPIRY_SECONDS: u64 = 30 * 24 * 60 * 60;
+
+// Safety cap on the platform fee: 2_000 bps = 20%. Applies to both the
+// default fee and per-dataset overrides. Existing escrows are unaffected
+// because each EscrowRecord snapshots its fee at lock time.
 // Safety cap on the platform fee: 2_000 bps = 20%.
 const MAX_FEE_BPS: u32 = 2_000;
 
@@ -28,10 +37,12 @@ const DEFAULT_MAX_ESCROWS_PER_LEDGER: u32 = 100;
 #[contracttype]
 pub enum DataKey {
     Admin,
+    Treasury,
     DefaultPlatformFee,
     EscrowCount,
     Paused,
     WhitelistEnforced,
+    // Circuit-breaker config
     MaxEscrowAmount,
     MaxEscrowsPerLedger,
     EscrowsThisLedger,
@@ -63,6 +74,25 @@ pub enum Error {
     NotSeller = 11,
     Expired = 12,
     NotPaused = 13,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+#[repr(u32)]
+pub enum HazinaEscrowError {
+    AlreadyInitialized = 1,
+    NotInitialized = 2,
+    NotAdmin = 3,
+    InvalidFeeBps = 4,
+    InvalidAmount = 5,
+    AlreadyReleased = 6,
+    AlreadyRefunded = 7,
+    EscrowNotFound = 8,
+    AddressBlacklisted = 9,
+    AddressNotWhitelisted = 10,
+    EmptyDatasetId = 11,
+    Paused = 12,
+    AmountExceedsCircuitBreaker = 13,
+    RateLimitExceeded = 14,
     Paused = 14,
     InvalidFeeBps = 15,
     InvalidAmount = 16,
@@ -120,18 +150,20 @@ pub struct HazinaEscrow;
 
 #[contractimpl]
 impl HazinaEscrow {
-    pub fn initialize(env: Env, admin: Address, platform_fee_bps: u32) {
+    pub fn initialize(env: Env, admin: Address, treasury: Address, platform_fee_bps: u32) {
         if env.storage().instance().has(&DataKey::Admin) {
             panic_with_error!(&env, Error::AlreadyInitialized);
         }
         Self::assert_valid_fee(&env, platform_fee_bps);
 
         env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().instance().set(&DataKey::Treasury, &treasury);
         env.storage()
             .instance()
             .set(&DataKey::DefaultPlatformFee, &platform_fee_bps);
         env.storage().instance().set(&DataKey::EscrowCount, &0u64);
         env.storage().instance().set(&DataKey::Paused, &false);
+        Ok(())
     }
 
     // ─── Pause / unpause ─────────────────────────────────────────────────────
@@ -685,6 +717,29 @@ impl HazinaEscrow {
 
     // ─── Private helpers ─────────────────────────────────────────────────────
 
+    pub fn get_fee(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::DefaultPlatformFee)
+            .unwrap_or(500)
+    }
+
+    fn distribute_locked_funds(env: &Env, admin: &Address, record: &mut EscrowRecord) {
+        let fee_bps = Self::get_fee(env.clone());
+        let platform_cut = record.amount * fee_bps as i128 / MAX_BASIS_POINTS as i128;
+        let seller_cut = record.amount - platform_cut;
+        let token_client = token::Client::new(env, &record.token);
+        token_client.transfer(&env.current_contract_address(), &record.seller, &seller_cut);
+        if platform_cut > 0 {
+            let treasury: Address = env
+                .storage()
+                .instance()
+                .get(&DataKey::Treasury)
+                .unwrap_or(admin.clone());
+            token_client.transfer(&env.current_contract_address(), &treasury, &platform_cut);
+    fn assert_valid_amount(env: &Env, amount: i128) {
+        if amount < MIN_LOCK_AMOUNT {
+            panic_with_error!(env, HazinaEscrowError::InvalidAmount);
     fn assert_valid_fee(env: &Env, fee_bps: u32) {
         if fee_bps > MAX_FEE_BPS {
             panic_with_error!(env, Error::InvalidFeeBps);
@@ -803,7 +858,13 @@ impl HazinaEscrow {
 
         let token_client = token::Client::new(env, &record.token);
         token_client.transfer(&env.current_contract_address(), &record.seller, &seller_cut);
-        token_client.transfer(&env.current_contract_address(), admin, &platform_cut);
+        
+        let treasury: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Treasury)
+            .unwrap_or(admin.clone());
+        token_client.transfer(&env.current_contract_address(), &treasury, &platform_cut);
 
         record.released = true;
         env.storage()
