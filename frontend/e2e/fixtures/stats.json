@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "stats": {
+    "totalDatasets": 42,
+    "totalQueries": 1280,
+    "totalUsdcEarned": 3540.75,
+    "totalTransactions": 980
+  }
+}

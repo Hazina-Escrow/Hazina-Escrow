@@ -6,6 +6,7 @@ import App from './App';
 import './index.css';
 import { I18nProvider } from './i18n';
 import ErrorBoundary from './components/ErrorBoundary';
+import { ThemeProvider } from './context/ThemeContext';
 import { initEnv } from './lib/env';
 
 // Validate required environment variables before mounting the app.
@@ -15,7 +16,6 @@ try {
   initEnv();
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err);
-  // eslint-disable-next-line no-console
   console.error(message);
   document.body.innerHTML = `<pre style="font-family:monospace;padding:2rem;color:#ef4444;white-space:pre-wrap">${message}</pre>`;
   throw err;
@@ -32,16 +32,20 @@ const queryClient = new QueryClient({
   },
 });
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Root element not found');
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <HelmetProvider>
-      <QueryClientProvider client={queryClient}>
-        <I18nProvider>
-          <ErrorBoundary>
-            <App />
-          </ErrorBoundary>
-        </I18nProvider>
-      </QueryClientProvider>
-    </HelmetProvider>
-  </React.StrictMode>
+    <ThemeProvider>
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <I18nProvider>
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
+          </I18nProvider>
+        </QueryClientProvider>
+      </HelmetProvider>
+    </ThemeProvider>
+  </React.StrictMode>,
 );

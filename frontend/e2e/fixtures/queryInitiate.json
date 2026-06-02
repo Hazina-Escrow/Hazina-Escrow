@@ -1,0 +1,7 @@
+{
+  "payment": {
+    "paymentAddress": "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDE",
+    "amount": 0.05,
+    "memo": "hazina-ds-001"
+  }
+}

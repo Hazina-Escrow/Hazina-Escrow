@@ -8,6 +8,7 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
     env: {
       VITE_API_URL: 'http://localhost:3000',
       VITE_API_KEY: 'test-api-key',
@@ -19,8 +20,10 @@ export default defineConfig({
       exclude: [
         'node_modules/',
         'dist/',
+        'e2e/**',
         '**/*.test.tsx',
         '**/*.spec.tsx',
+        '**/*.spec.ts',
       ],
       thresholds: {
         lines: 50,

@@ -44,9 +44,6 @@ export function validateEnv(): EnvConfig {
     );
   }
 
-  const network = (envVars.VITE_STELLAR_NETWORK || 'testnet').trim().toLowerCase();
-  const maxRequestsRaw = parseInt(envVars.VITE_MAX_CONCURRENT_REQUESTS || '8', 10);
-
   return {
     apiUrl: String(import.meta.env.VITE_API_URL).trim().replace(/\/+$/, ""),
     enableDemoMode: readEnableDemoMode(),

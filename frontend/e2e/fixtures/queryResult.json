@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "demo": true,
+  "ai": {
+    "summary": "Whale activity indicates strong accumulation in USDC/XLM pair.",
+    "answer": "Based on current data, bullish momentum is expected."
+  },
+  "transaction": {
+    "hash": "abc123txhash",
+    "status": "success",
+    "deliveryStatus": "delivered",
+    "amount": 0.05,
+    "sellerReceived": 0.0475,
+    "platformFee": 0.0025
+  }
+}
