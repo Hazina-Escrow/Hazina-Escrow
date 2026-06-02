@@ -242,6 +242,7 @@ export const en = {
       listingLiveBody: '{name} is now on the marketplace.',
       listingLiveRevenue:
         'Buyers can query it for ${price} USDC each. 95% goes directly to your Stellar wallet.',
+      draftRestored: 'Draft restored from your last session',
     },
     eyebrow: 'Earn Passively',
     title: 'List Your Data',

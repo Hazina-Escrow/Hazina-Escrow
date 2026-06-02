@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_DEMO_MODE?: string;
   readonly VITE_STELLAR_NETWORK?: string;
   readonly VITE_USDC_ISSUER?: string;
+  readonly VITE_WEBSOCKET_URL?: string;
   // Vite built-ins
   readonly DEV: boolean;
   readonly PROD: boolean;

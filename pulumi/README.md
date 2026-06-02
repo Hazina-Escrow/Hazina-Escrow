@@ -34,6 +34,11 @@ This directory contains Pulumi scripts to deploy the Hazina Escrow project on AW
    pulumi config set corsAllowedOrigins "https://app.example.com,https://admin.example.com"
    ```
 
+   > **Secret handling:** `anthropicApiKey` and `agentWalletSecret` are stored in AWS Secrets
+   > Manager by the stack. ECS injects them into the container at runtime via the `secrets`
+   > field in the task definition. Their plaintext values are never written to the Pulumi state
+   > file — only the Secrets Manager ARNs appear there.
+
 4. **Deploy the infrastructure**:
    ```bash
    pulumi up

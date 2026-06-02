@@ -85,7 +85,7 @@ export function useTransactionWebSocket(
 
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const host = process.env.REACT_APP_WEBSOCKET_URL || `${protocol}://${window.location.host}`;
+      const host = import.meta.env.VITE_WEBSOCKET_URL || `${protocol}://${window.location.host}`;
       const wsUrl = `${host}/ws`;
 
       const ws = new WebSocket(wsUrl);

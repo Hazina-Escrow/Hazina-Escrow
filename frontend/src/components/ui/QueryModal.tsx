@@ -13,7 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { api, DatasetMeta, QueryResult } from '../../lib/api';
-import { isDemoModeEnabled } from '../../lib/env';
+import { useToastContext } from './ToastProvider';
 import { formatUSDC, getTypeMeta, truncateAddress } from '../../lib/utils';
 import { launchStellarWalletProvider } from '../../lib/stellarWallets';
 import type { StellarWalletProvider } from '../../lib/stellarWallets';
@@ -32,6 +32,7 @@ interface Props {
 export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true }: Props) {
   const { locale, t } = useI18n();
   const catalog = getCatalog(locale);
+  const { success: toastSuccess, error: toastError } = useToastContext();
   const [step, setStep] = useState<Step>('details');
   const [paymentInfo, setPaymentInfo] = useState<{
     paymentAddress: string;
@@ -113,6 +114,7 @@ export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true 
       clearVerifyTimer();
       setResult(res);
       setStep('result');
+      toastSuccess(t('queryModal.result.paymentVerified'), dataset.name);
       const delivered = res.transaction.deliveryStatus === 'delivered';
       onSuccess({
         id: dataset.id,
@@ -124,7 +126,9 @@ export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true 
       });
     } catch (err: unknown) {
       clearVerifyTimer();
-      setError(err instanceof Error ? err.message : t('queryModal.error.title'));
+      const msg = err instanceof Error ? err.message : t('queryModal.error.title');
+      setError(msg);
+      toastError(t('queryModal.error.title'), msg);
       setStep('error');
     }
   };

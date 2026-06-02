@@ -8,31 +8,15 @@
 export interface EnvConfig {
   /** Base URL of the backend API (e.g. http://localhost:3001) */
   apiUrl: string;
-  /** API key required for administrative actions like creating datasets */
-  apiKey: string;
-  /** Stellar network to use: 'testnet' or 'public' (mainnet) */
-  stellarNetwork: 'testnet' | 'public';
-  /** Optional override for the USDC asset issuer address on Stellar */
-  usdcIssuer?: string;
-  /** Maximum number of concurrent API requests allowed */
-  maxConcurrentRequests: number;
+  enableDemoMode: boolean;
 }
 
 const REQUIRED_ENV_VARS = ['VITE_API_URL', 'VITE_API_KEY'] as const;
 
-function readEnableDemoMode(): boolean {
-  return (
-    String((import.meta.env as Record<string, string | undefined>).VITE_ENABLE_DEMO_MODE ?? '')
-      .trim()
-      .toLowerCase() === 'true'
-  );
-}
-
-/**
- * Returns whether demo mode is enabled via the VITE_ENABLE_DEMO_MODE env var.
- */
-export function isDemoModeEnabled(): boolean {
-  return readEnableDemoMode();
+function readEnableDemoMode() {
+  return String(import.meta.env.VITE_ENABLE_DEMO_MODE ?? "")
+    .trim()
+    .toLowerCase() === "true";
 }
 
 /**
@@ -61,17 +45,8 @@ export function validateEnv(): EnvConfig {
   }
 
   return {
-    apiUrl: String(envVars.VITE_API_URL).trim().replace(/\/+$/, ''),
-    apiKey: String(envVars.VITE_API_KEY).trim(),
-    stellarNetwork: ((): 'testnet' | 'public' => {
-      const n = (envVars.VITE_STELLAR_NETWORK || 'testnet').trim().toLowerCase();
-      return n === 'mainnet' || n === 'public' ? 'public' : 'testnet';
-    })(),
-    usdcIssuer: envVars.VITE_USDC_ISSUER?.trim(),
-    maxConcurrentRequests: (() => {
-      const raw = parseInt(envVars.VITE_MAX_CONCURRENT_REQUESTS || '8', 10);
-      return Number.isFinite(raw) && raw > 0 ? raw : 8;
-    })(),
+    apiUrl: String(import.meta.env.VITE_API_URL).trim().replace(/\/+$/, ""),
+    enableDemoMode: readEnableDemoMode(),
   };
 }
 
@@ -94,4 +69,8 @@ export function getEnv(): EnvConfig {
 export function initEnv(): EnvConfig {
   _env = validateEnv();
   return _env;
+}
+
+export function isDemoModeEnabled() {
+  return readEnableDemoMode();
 }

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import SellPage from './SellPage';
 import { I18nProvider } from '../i18n';
 import { api } from '../lib/api';
@@ -181,6 +181,199 @@ describe('SellPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Create failed')).toBeTruthy();
+    });
+  });
+
+  describe('Draft auto-save and restoration', () => {
+    beforeEach(() => {
+      localStorage.clear();
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      localStorage.clear();
+      vi.useRealTimers();
+    });
+
+    it('persists form data to localStorage when fields change', async () => {
+      renderSellPage();
+
+      fireEvent.change(
+        screen.getByPlaceholderText('e.g. Top 100 Whale Wallet Movements — April 2026'),
+        {
+          target: { value: 'My Test Dataset' },
+        },
+      );
+
+      await waitFor(() => {
+        const stored = localStorage.getItem('hazina_sell_form_draft');
+        expect(stored).toBeTruthy();
+        const data = JSON.parse(stored || '{}');
+        expect(data.data.name).toBe('My Test Dataset');
+        expect(data.timestamp).toBeDefined();
+      });
+    });
+
+    it('does not persist wallet address for security', async () => {
+      renderSellPage();
+
+      fireEvent.change(
+        screen.getByPlaceholderText('e.g. Top 100 Whale Wallet Movements — April 2026'),
+        {
+          target: { value: 'Dataset Name' },
+        },
+      );
+
+      fireEvent.change(screen.getByPlaceholderText('G... (56-character Stellar public key)'), {
+        target: { value: validWallet },
+      });
+
+      await waitFor(() => {
+        const stored = localStorage.getItem('hazina_sell_form_draft');
+        const data = JSON.parse(stored || '{}');
+        expect(data.data.sellerWallet).toBeUndefined();
+      });
+    });
+
+    it('restores saved draft on page reload', () => {
+      const draftData = {
+        data: {
+          name: 'Saved Dataset',
+          description: 'Saved description',
+          type: 'whale-wallets',
+          pricePerQuery: '0.10',
+          dataText: '{"test": true}',
+        },
+        timestamp: Date.now(),
+      };
+
+      localStorage.setItem('hazina_sell_form_draft', JSON.stringify(draftData));
+
+      renderSellPage();
+
+      expect(screen.getByDisplayValue('Saved Dataset')).toBeTruthy();
+      expect(screen.getByDisplayValue('Saved description')).toBeTruthy();
+      expect(screen.getByDisplayValue('0.1')).toBeTruthy();
+    });
+
+    it('shows draft restored toast notification when draft is loaded', async () => {
+      const draftData = {
+        data: {
+          name: 'Saved Dataset',
+          description: 'Saved description',
+          type: 'whale-wallets',
+          pricePerQuery: '0.05',
+          dataText: '',
+        },
+        timestamp: Date.now(),
+      };
+
+      localStorage.setItem('hazina_sell_form_draft', JSON.stringify(draftData));
+
+      renderSellPage();
+
+      await waitFor(() => {
+        expect(screen.getByText('Draft restored from your last session')).toBeTruthy();
+      });
+    });
+
+    it('does not show toast when no draft exists', () => {
+      localStorage.clear();
+
+      renderSellPage();
+
+      expect(screen.queryByText('Draft restored from your last session')).toBeNull();
+    });
+
+    it('discards draft older than 24 hours', () => {
+      const oldDraftData = {
+        data: {
+          name: 'Old Dataset',
+          description: 'Old description',
+          type: 'whale-wallets',
+          pricePerQuery: '0.05',
+          dataText: '',
+        },
+        timestamp: Date.now() - 25 * 60 * 60 * 1000, // 25 hours old
+      };
+
+      localStorage.setItem('hazina_sell_form_draft', JSON.stringify(oldDraftData));
+
+      renderSellPage();
+
+      // Should show empty form, not the old data
+      const nameInput = screen.getByPlaceholderText(
+        'e.g. Top 100 Whale Wallet Movements — April 2026',
+      ) as HTMLInputElement;
+      expect(nameInput.value).toBe('');
+
+      // Storage should be cleared
+      expect(localStorage.getItem('hazina_sell_form_draft')).toBeNull();
+    });
+
+    it('clears draft after successful submission', async () => {
+      type CreatedDataset = Awaited<ReturnType<typeof api.createDataset>>;
+      let resolveRequest: ((value: CreatedDataset) => void) | undefined;
+      vi.mocked(api.createDataset).mockReturnValueOnce(
+        new Promise<CreatedDataset>((resolve) => {
+          resolveRequest = resolve;
+        }),
+      );
+
+      renderSellPage();
+      fillRequiredFields();
+      fireEvent.change(screen.getByPlaceholderText(/Paste your JSON data here/i), {
+        target: { value: '{"rows":[1,2,3]}' },
+      });
+
+      // Verify draft is saved
+      await waitFor(() => {
+        const stored = localStorage.getItem('hazina_sell_form_draft');
+        expect(stored).toBeTruthy();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Publish to Marketplace' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+
+      resolveRequest?.({
+        id: 'ds-1',
+        name: 'Test Dataset',
+        description: 'A useful dataset description',
+        type: 'whale-wallets',
+        pricePerQuery: 0.05,
+        sellerWallet: validWallet,
+        queriesServed: 0,
+        totalEarned: 0,
+        createdAt: new Date().toISOString(),
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Listing Live!')).toBeTruthy();
+        // Draft should be cleared after successful submission
+        expect(localStorage.getItem('hazina_sell_form_draft')).toBeNull();
+      });
+    });
+
+    it('restores wallet as empty string for security (never restore sensitive data)', () => {
+      const draftWithWallet = {
+        data: {
+          name: 'Dataset',
+          description: 'Description',
+          type: 'whale-wallets',
+          pricePerQuery: '0.05',
+          dataText: '',
+        },
+        timestamp: Date.now(),
+      };
+
+      localStorage.setItem('hazina_sell_form_draft', JSON.stringify(draftWithWallet));
+
+      renderSellPage();
+
+      const walletInput = screen.getByPlaceholderText(
+        'G... (56-character Stellar public key)',
+      ) as HTMLInputElement;
+      expect(walletInput.value).toBe('');
     });
   });
 });

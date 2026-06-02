@@ -6,7 +6,11 @@ const DATA_DIR = path.dirname(DATA_PATH);
 const LOCK_PATH = path.join(DATA_DIR, '.store.lock');
 const LOCK_STALE_MS = 30_000;
 const pendingTxHashes = new Set<string>();
-let writeQueue: Promise<void> = Promise.resolve();
+
+// In-memory cache: populated on first read, invalidated on every write.
+let cache: Store | null = null;
+
+const DATA_PATH = process.env.DATA_PATH || path.resolve(process.cwd(), 'data/datasets.json');
 
 async function writeStoreFile(store: Store): Promise<void> {
   const tempPath = path.join(
@@ -18,6 +22,7 @@ async function writeStoreFile(store: Store): Promise<void> {
   try {
     await fs.writeFile(tempPath, serialized, 'utf-8');
     await fs.rename(tempPath, DATA_PATH);
+    cache = null;
   } catch (err) {
     await fs.unlink(tempPath).catch(() => {});
     throw err;
@@ -141,6 +146,15 @@ async function readRaw(): Promise<Store> {
   return normalizeStore(parsed);
 }
 
+async function persistStore(store: Store): Promise<void> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  const serialized = JSON.stringify(store, null, 2);
+  const tempPath = `${DATA_PATH}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+  await fs.writeFile(tempPath, serialized, 'utf-8');
+  await fs.rename(tempPath, DATA_PATH);
+  cache = null;
+}
+
 type LockHandle = Awaited<ReturnType<typeof fs.open>>;
 
 async function acquireLock(timeoutMs = 10_000): Promise<LockHandle> {
@@ -216,7 +230,13 @@ async function updateStore<T>(mutator: (store: Store) => Promise<T> | T): Promis
 
 export async function readStore(): Promise<Store> {
   await writeQueue;
-  return readRaw();
+  if (cache) return cache;
+  cache = await readStoreInternal();
+  return cache;
+}
+
+export function invalidateCache(): void {
+  cache = null;
 }
 
 export async function writeStore(store: Store): Promise<void> {

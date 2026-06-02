@@ -3,6 +3,7 @@ import https from 'https';
 import http from 'http';
 import { URL } from 'url';
 import { WebhookEvent, WebhookSubscription, getWebhooksForSeller } from '../common/storage';
+import { decryptSecret } from '../common/secret-crypto';
 import { getCircuitBreaker, CircuitBreakerOpenError } from '../common/circuit-breaker';
 import { logger } from '../lib/logger';
 
@@ -48,7 +49,7 @@ export async function dispatchWebhook(
     payload,
   };
   const bodyString = JSON.stringify(body);
-  const signature = signPayload(bodyString, subscription.secret);
+  const signature = signPayload(bodyString, decryptSecret(subscription.secret));
 
   const url = new URL(subscription.url);
   const options: http.RequestOptions = {

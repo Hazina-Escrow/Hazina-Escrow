@@ -6,15 +6,18 @@ import { logger } from '../lib/logger';
 // Configurable via env; default 60 seconds (shared with claude.service)
 const ANTHROPIC_TIMEOUT_MS = parseInt(process.env.ANTHROPIC_TIMEOUT_MS ?? '60000', 10);
 
+export interface SellerDataset {
+  role: string;
+  displayName: string;
+  data: Record<string, unknown>;
+  cost: number;
+}
+
 export interface ResearchInput {
   userQuery: string;
   budget: number;
   riskTolerance: 'low' | 'medium' | 'high';
-  yieldData: Record<string, unknown>;
-  whaleData: Record<string, unknown>;
-  riskData: Record<string, unknown>;
-  sentimentData: Record<string, unknown>;
-  datasetCosts: Record<string, number>;
+  availableSellers: SellerDataset[];
 }
 
 export interface ResearchReport {
@@ -70,32 +73,30 @@ export async function synthesizeResearch(input: ResearchInput): Promise<Research
     apiKey: process.env.ANTHROPIC_API_KEY,
     timeout: ANTHROPIC_TIMEOUT_MS,
   });
-  const prompt = `You are the Hazina Research Agent — an autonomous DeFi yield researcher. You have just purchased data from four specialised on-chain data sellers using micro-payments on Stellar. Synthesise all four datasets into a single, actionable research report for the user.
+
+  const datasetSections = input.availableSellers
+    .map(
+      (seller, i) =>
+        `DATASET ${i + 1} — ${seller.displayName.toUpperCase()} (purchased for ${seller.cost.toFixed(2)} USDC):\n${JSON.stringify(seller.data, null, 2)}`,
+    )
+    .join('\n\n---\n\n');
+
+  const sellerCount = input.availableSellers.length;
+  const prompt = `You are the Hazina Research Agent — an autonomous DeFi yield researcher. You have just purchased data from ${sellerCount} specialised on-chain data seller${sellerCount !== 1 ? 's' : ''} using micro-payments on Stellar. Synthesise all datasets into a single, actionable research report for the user.
 
 USER QUERY: "${input.userQuery}"
 BUDGET: $${input.budget} USDC
 RISK TOLERANCE: ${input.riskTolerance}
 
 ---
-DATASET 1 — YIELD DATA (purchased for ${input.datasetCosts['yieldData'] ?? 'unknown'} USDC):
-${JSON.stringify(input.yieldData, null, 2)}
+
+${datasetSections}
 
 ---
-DATASET 2 — WHALE WALLET MOVEMENTS (purchased for ${input.datasetCosts['whaleData'] ?? 'unknown'} USDC):
-${JSON.stringify(input.whaleData, null, 2)}
 
----
-DATASET 3 — RISK SCORES (purchased for ${input.datasetCosts['riskData'] ?? 'unknown'} USDC):
-${JSON.stringify(input.riskData, null, 2)}
-
----
-DATASET 4 — MARKET SENTIMENT (purchased for ${input.datasetCosts['sentimentData'] ?? 'unknown'} USDC):
-${JSON.stringify(input.sentimentData, null, 2)}
-
----
 INSTRUCTIONS:
 1. Identify the single best USDC yield opportunity that matches the user's risk tolerance and budget.
-2. Cross-reference: does whale activity confirm confidence? Does sentiment support? Does risk score match tolerance?
+2. Cross-reference all available datasets to build confidence.
 3. Flag any red flags or warnings.
 4. Suggest 2 alternatives if the top pick doesn't suit.
 

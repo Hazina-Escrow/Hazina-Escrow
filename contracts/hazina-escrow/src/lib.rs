@@ -177,7 +177,16 @@ impl HazinaEscrow {
     }
 
     pub fn update_fee(env: Env, admin: Address, new_fee_bps: u32) {
-        Self::set_default_fee(env, admin, new_fee_bps);
+        admin.require_auth();
+        Self::assert_admin(&env, &admin);
+        Self::assert_valid_fee(&env, new_fee_bps);
+
+        env.storage()
+            .instance()
+            .set(&DataKey::DefaultPlatformFee, &new_fee_bps);
+
+        env.events()
+            .publish((soroban_sdk::symbol_short!("fee_upd"),), (admin, new_fee_bps));
     }
 
     pub fn get_fee(env: Env) -> u32 {
@@ -1320,6 +1329,20 @@ mod tests {
         let (env, client, _, _, _, _) = setup();
         let impostor = Address::generate(&env);
         client.set_fee(&impostor, &300);
+    }
+
+    #[test]
+    fn test_update_fee_accepts_max_boundary() {
+        let (_, client, admin, _, _, _) = setup();
+        client.update_fee(&admin, &MAX_FEE_BPS);
+        assert_eq!(client.get_fee(), MAX_FEE_BPS);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #4)")]
+    fn test_update_fee_rejects_above_cap() {
+        let (_, client, admin, _, _, _) = setup();
+        client.update_fee(&admin, &(MAX_FEE_BPS + 1));
     }
 
     #[test]
