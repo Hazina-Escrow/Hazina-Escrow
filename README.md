@@ -433,6 +433,24 @@ docker compose down
 docker compose -f docker-compose.prod.yml down
 ```
 
+### Image vulnerability scanning
+
+The production backend and frontend images are scanned for known CVEs by the
+[`Container Image Scan`](.github/workflows/container-scan.yml) GitHub Actions
+workflow. On every pull request and push to `main` that touches `backend/` or
+`frontend/`, each image is built and scanned with
+[Trivy](https://github.com/aquasecurity/trivy); the build fails on any fixable
+`HIGH` or `CRITICAL` OS/library vulnerability. Results are also published to the
+repository's **Security → Code scanning** tab, and a weekly scheduled run
+re-scans the images to catch CVEs disclosed after the last build.
+
+To reproduce a scan locally:
+
+```bash
+docker build -t hazina-backend:scan --target production ./backend
+trivy image --severity HIGH,CRITICAL --ignore-unfixed hazina-backend:scan
+```
+
 ---
 
 ## Pages & Features
