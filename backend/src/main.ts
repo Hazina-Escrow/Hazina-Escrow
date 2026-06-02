@@ -243,13 +243,21 @@ process.on('unhandledRejection', (reason: unknown) => {
   logger.error(
     `[Unhandled Rejection]: ${reason instanceof Error ? reason.message : String(reason)}`,
   );
-  Sentry.captureException(reason);
+  Sentry.withScope(scope => {
+    scope.setTag('source', 'unhandledRejection');
+    scope.setLevel('error');
+    Sentry.captureException(reason);
+  });
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err: Error) => {
   logger.error(`[Uncaught Exception]: ${err.message}`);
-  Sentry.captureException(err);
+  Sentry.withScope(scope => {
+    scope.setTag('source', 'uncaughtException');
+    scope.setLevel('fatal');
+    Sentry.captureException(err);
+  });
 });
 
 // Routes under versioned API namespace.
@@ -290,7 +298,17 @@ app.use(
     // object is intentional — pino serialises it safely. Never interpolate
     // err.message into a template string here as it may include key material.
     logger.error({ requestId: req.id, status, err }, 'Unhandled request error');
-    Sentry.captureException(err);
+    Sentry.withScope(scope => {
+      scope.setTag('requestId', req.id);
+      scope.setTag('method', req.method);
+      scope.setTag('url', req.originalUrl);
+      scope.setContext('request', {
+        id: req.id,
+        method: req.method,
+        url: req.originalUrl,
+      });
+      Sentry.captureException(err);
+    });
     res
       .status(status)
       .json({ error: message, code: err.code || 'INTERNAL_ERROR', requestId: req.id });
