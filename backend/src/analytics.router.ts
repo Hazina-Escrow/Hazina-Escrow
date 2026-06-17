@@ -42,8 +42,9 @@ analyticsRouter.get('/seller/:wallet', async (req: Request, res: Response) => {
       volumeByDay.set(date, currentVolume + 1);
     }
 
-    if (transaction.txHash) {
-      buyerCounts.set(transaction.txHash, (buyerCounts.get(transaction.txHash) ?? 0) + 1);
+    const buyerId = transaction.buyerWallet ?? transaction.txHash;
+    if (buyerId) {
+      buyerCounts.set(buyerId, (buyerCounts.get(buyerId) ?? 0) + 1);
     }
   }
 
