@@ -1,44 +1,37 @@
-
-import clsx from "clsx";
+import clsx from 'clsx';
 
 interface SkeletonProps {
   className?: string;
-  variant?: "text" | "circular" | "rectangular" | "rounded";
+  variant?: 'text' | 'circular' | 'rectangular' | 'rounded';
   width?: string | number;
   height?: string | number;
-  animation?: "pulse" | "wave";
+  animation?: 'pulse' | 'wave';
 }
 
 export function Skeleton({
   className,
-  variant = "text",
+  variant = 'text',
   width,
   height,
-  animation = "pulse",
+  animation = 'pulse',
 }: SkeletonProps) {
-  const baseClasses = "bg-surface-2/60";
-  const animationClasses =
-    animation === "pulse" ? "animate-pulse" : "animate-shimmer";
+  const baseClasses = 'bg-surface-2/60';
+  const animationClasses = animation === 'pulse' ? 'animate-pulse' : 'animate-shimmer';
 
   const variantClasses = {
-    text: "rounded h-4",
-    circular: "rounded-full",
-    rectangular: "rounded-none",
-    rounded: "rounded-xl",
+    text: 'rounded h-4',
+    circular: 'rounded-full',
+    rectangular: 'rounded-none',
+    rounded: 'rounded-xl',
   };
 
   return (
     <div
-      className={clsx(
-        baseClasses,
-        animationClasses,
-        variantClasses[variant],
-        className,
-      )}
+      className={clsx(baseClasses, animationClasses, variantClasses[variant], className)}
       style={{
-        width: width || (variant === "text" ? "100%" : undefined),
-        minHeight: height || (variant === "circular" ? width : undefined),
-        height: variant === "circular" ? (height ?? width) : undefined,
+        width: width || (variant === 'text' ? '100%' : undefined),
+        minHeight: height || (variant === 'circular' ? width : undefined),
+        height: variant === 'circular' ? (height ?? width) : undefined,
       }}
     />
   );
@@ -105,12 +98,7 @@ export function TableRowSkeleton({ columns = 4 }: { columns?: number }) {
   return (
     <div className="flex items-center gap-4 p-4 border-b border-border/30 animate-pulse">
       {Array.from({ length: columns }).map((_, i) => (
-        <Skeleton
-          key={i}
-          variant="text"
-          width={`${100 / columns}%`}
-          height={16}
-        />
+        <Skeleton key={i} variant="text" width={`${100 / columns}%`} height={16} />
       ))}
     </div>
   );

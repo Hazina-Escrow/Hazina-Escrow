@@ -12,7 +12,10 @@ function makeApp() {
 
   app.use(express.json());
   app.use(createGlobalRateLimitMiddleware({ windowMs: 60_000, maxRequests: 2 }));
-  app.use('/api/v1/payments', createPaymentsRateLimitMiddleware({ windowMs: 60_000, maxRequests: 1 }));
+  app.use(
+    '/api/v1/payments',
+    createPaymentsRateLimitMiddleware({ windowMs: 60_000, maxRequests: 1 }),
+  );
   app.use(
     '/api/v1/agent',
     createAgentRateLimitMiddleware({

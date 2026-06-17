@@ -1,12 +1,12 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import TermsPage from "./TermsPage";
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import TermsPage from './TermsPage';
 
-describe("TermsPage", () => {
-  it("renders the terms page with the testnet disclaimer visible", () => {
+describe('TermsPage', () => {
+  it('renders the terms page with the testnet disclaimer visible', () => {
     render(
-      <MemoryRouter initialEntries={["/terms"]}>
+      <MemoryRouter initialEntries={['/terms']}>
         <Routes>
           <Route path="/terms" element={<TermsPage />} />
         </Routes>

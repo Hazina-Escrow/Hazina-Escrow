@@ -22,7 +22,7 @@ function scrubSensitiveKeys(value: unknown, depth = 0): unknown {
   if (depth > 10 || value === null || typeof value !== 'object') return value;
 
   if (Array.isArray(value)) {
-    return value.map((item) => scrubSensitiveKeys(item, depth + 1));
+    return value.map(item => scrubSensitiveKeys(item, depth + 1));
   }
 
   const sanitised: Record<string, unknown> = {};

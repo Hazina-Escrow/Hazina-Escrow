@@ -315,7 +315,7 @@ describe('SellPage', () => {
       type CreatedDataset = Awaited<ReturnType<typeof api.createDataset>>;
       let resolveRequest: ((value: CreatedDataset) => void) | undefined;
       vi.mocked(api.createDataset).mockReturnValueOnce(
-        new Promise<CreatedDataset>((resolve) => {
+        new Promise<CreatedDataset>(resolve => {
           resolveRequest = resolve;
         }),
       );

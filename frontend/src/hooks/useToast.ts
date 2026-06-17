@@ -17,7 +17,7 @@ export function useToast() {
   const counterRef = useRef(0);
 
   const dismiss = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
   const toast = useCallback(
@@ -25,7 +25,7 @@ export function useToast() {
       const id = `toast-${++counterRef.current}`;
       const duration = input.duration ?? 4000;
 
-      setToasts((prev) => [...prev, { ...input, id, duration }]);
+      setToasts(prev => [...prev, { ...input, id, duration }]);
 
       if (duration > 0) {
         setTimeout(() => dismiss(id), duration);
@@ -37,26 +37,22 @@ export function useToast() {
   );
 
   const success = useCallback(
-    (title: string, description?: string) =>
-      toast({ variant: 'success', title, description }),
+    (title: string, description?: string) => toast({ variant: 'success', title, description }),
     [toast],
   );
 
   const error = useCallback(
-    (title: string, description?: string) =>
-      toast({ variant: 'error', title, description }),
+    (title: string, description?: string) => toast({ variant: 'error', title, description }),
     [toast],
   );
 
   const warning = useCallback(
-    (title: string, description?: string) =>
-      toast({ variant: 'warning', title, description }),
+    (title: string, description?: string) => toast({ variant: 'warning', title, description }),
     [toast],
   );
 
   const info = useCallback(
-    (title: string, description?: string) =>
-      toast({ variant: 'info', title, description }),
+    (title: string, description?: string) => toast({ variant: 'info', title, description }),
     [toast],
   );
 

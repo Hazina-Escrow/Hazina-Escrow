@@ -1,4 +1,4 @@
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   Database,
   BarChart3,
@@ -9,10 +9,10 @@ import {
   Bot,
   Wallet,
   LogOut,
-} from "lucide-react";
-import { useEffect, useId, useState } from "react";
-import clsx from "clsx";
-import { LocaleSwitcher, useI18n } from "../../i18n";
+} from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import clsx from 'clsx';
+import { LocaleSwitcher, useI18n } from '../../i18n';
 
 declare global {
   interface Window {
@@ -25,18 +25,18 @@ declare global {
 
 const NAV_LINKS = [
   {
-    to: "/marketplace",
-    key: "nav.marketplace",
+    to: '/marketplace',
+    key: 'nav.marketplace',
     icon: ShoppingCart,
-    dataTour: "marketplace-link",
+    dataTour: 'marketplace-link',
   },
-  { to: "/agent", key: "nav.agent", icon: Bot, dataTour: "agent-link" },
-  { to: "/sell", key: "nav.sell", icon: Upload, dataTour: "sell-link" },
+  { to: '/agent', key: 'nav.agent', icon: Bot, dataTour: 'agent-link' },
+  { to: '/sell', key: 'nav.sell', icon: Upload, dataTour: 'sell-link' },
   {
-    to: "/dashboard",
-    key: "nav.dashboard",
+    to: '/dashboard',
+    key: 'nav.dashboard',
     icon: BarChart3,
-    dataTour: "dashboard-link",
+    dataTour: 'dashboard-link',
   },
 ] as const;
 
@@ -44,15 +44,11 @@ export default function Navbar() {
   const { pathname } = useLocation();
   const { t } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [publicKey, setPublicKey] = useState<string | null>(
-    localStorage.getItem("hazina_wallet"),
-  );
+  const [publicKey, setPublicKey] = useState<string | null>(localStorage.getItem('hazina_wallet'));
   const mobileMenuId = useId();
   const desktopWalletLabelId = useId();
 
-  const mobileMenuToggleLabel = mobileOpen
-    ? t("nav.closeMobileMenu")
-    : t("nav.openMobileMenu");
+  const mobileMenuToggleLabel = mobileOpen ? t('nav.closeMobileMenu') : t('nav.openMobileMenu');
 
   const truncateAddress = (address: string) => {
     if (!address || address.length < 8) {
@@ -69,20 +65,20 @@ export default function Navbar() {
         const nextPublicKey = await window.freighterApi?.getPublicKey?.();
         if (nextPublicKey) {
           setPublicKey(nextPublicKey);
-          localStorage.setItem("hazina_wallet", nextPublicKey);
+          localStorage.setItem('hazina_wallet', nextPublicKey);
         }
         return;
       }
 
-      window.open("https://www.freighter.app/", "_blank", "noopener,noreferrer");
+      window.open('https://www.freighter.app/', '_blank', 'noopener,noreferrer');
     } catch (error) {
-      console.error("Connection failed:", error);
+      console.error('Connection failed:', error);
     }
   };
 
   const handleDisconnect = () => {
     setPublicKey(null);
-    localStorage.removeItem("hazina_wallet");
+    localStorage.removeItem('hazina_wallet');
   };
 
   useEffect(() => {
@@ -90,10 +86,10 @@ export default function Navbar() {
   }, [pathname]);
 
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
 
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     };
   }, [mobileOpen]);
 
@@ -115,7 +111,7 @@ export default function Navbar() {
           handleDisconnect();
         }
       } catch (error) {
-        console.warn("Wallet reconnection check failed:", error);
+        console.warn('Wallet reconnection check failed:', error);
         handleDisconnect();
       }
     };
@@ -127,16 +123,12 @@ export default function Navbar() {
     <header className="fixed top-0 left-0 right-0 z-50">
       <div className="mx-3 mt-3 sm:mx-4 sm:mt-4">
         <nav className="glass-card-gold px-4 py-3 sm:px-5 sm:py-4 xl:px-6 flex items-center justify-between gap-3">
-          <Link
-            to="/"
-            className="flex min-w-0 items-center gap-3 group"
-            aria-label="Hazina Home"
-          >
+          <Link to="/" className="flex min-w-0 items-center gap-3 group" aria-label="Hazina Home">
             <div className="w-9 h-9 rounded-xl bg-gold/10 border border-gold/30 flex items-center justify-center group-hover:border-gold/60 transition-all duration-300 shrink-0">
               <Database className="w-5 h-5 text-gold" aria-hidden="true" />
             </div>
             <span className="font-display font-semibold text-lg sm:text-xl text-foreground group-hover:text-gold transition-colors duration-300 truncate">
-              {t("nav.brand")}
+              {t('nav.brand')}
             </span>
           </Link>
 
@@ -148,10 +140,10 @@ export default function Navbar() {
                 data-tour={dataTour}
                 className={({ isActive }) =>
                   clsx(
-                    "flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2 rounded-xl text-sm font-medium font-body transition-all duration-200",
+                    'flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2 rounded-xl text-sm font-medium font-body transition-all duration-200',
                     isActive
-                      ? "bg-gold/15 text-gold border border-gold/25"
-                      : "text-foreground-muted hover:text-foreground hover:bg-surface-2",
+                      ? 'bg-gold/15 text-gold border border-gold/25'
+                      : 'text-foreground-muted hover:text-foreground hover:bg-surface-2',
                   )
                 }
               >
@@ -174,9 +166,9 @@ export default function Navbar() {
                   type="button"
                   onClick={handleDisconnect}
                   className="ml-1 hover:text-white transition-colors"
-                  aria-label={t("common.actions.disconnect")}
+                  aria-label={t('common.actions.disconnect')}
                   aria-describedby={desktopWalletLabelId}
-                  title={t("common.actions.disconnect")}
+                  title={t('common.actions.disconnect')}
                 >
                   <LogOut className="w-4 h-4" aria-hidden="true" />
                 </button>
@@ -188,22 +180,19 @@ export default function Navbar() {
                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gold/30 text-gold hover:bg-gold/10 transition-all duration-200 text-sm font-medium"
               >
                 <Wallet className="w-4 h-4" aria-hidden="true" />
-                {t("common.actions.connectWallet")}
+                {t('common.actions.connectWallet')}
               </button>
             )}
 
-            <Link
-              to="/marketplace"
-              className="btn-gold text-sm px-4 py-2 whitespace-nowrap"
-            >
-              {t("common.actions.browseData")}
+            <Link to="/marketplace" className="btn-gold text-sm px-4 py-2 whitespace-nowrap">
+              {t('common.actions.browseData')}
             </Link>
           </div>
 
           <button
             type="button"
             className="xl:hidden flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gold/15 bg-surface/70 text-foreground-muted hover:text-foreground hover:border-gold/30 transition-colors"
-            onClick={() => setMobileOpen((current) => !current)}
+            onClick={() => setMobileOpen(current => !current)}
             aria-expanded={mobileOpen}
             aria-controls={mobileMenuId}
             aria-label={mobileMenuToggleLabel}
@@ -218,27 +207,25 @@ export default function Navbar() {
 
         <div
           className={clsx(
-            "xl:hidden fixed inset-0 z-40 transition-all duration-300",
-            mobileOpen ? "pointer-events-auto" : "pointer-events-none",
+            'xl:hidden fixed inset-0 z-40 transition-all duration-300',
+            mobileOpen ? 'pointer-events-auto' : 'pointer-events-none',
           )}
           aria-hidden={!mobileOpen}
         >
           <button
             type="button"
             className={clsx(
-              "absolute inset-0 bg-void/72 backdrop-blur-sm transition-opacity duration-300",
-              mobileOpen ? "opacity-100" : "opacity-0",
+              'absolute inset-0 bg-void/72 backdrop-blur-sm transition-opacity duration-300',
+              mobileOpen ? 'opacity-100' : 'opacity-0',
             )}
             onClick={() => setMobileOpen(false)}
-            aria-label={t("nav.closeMobileMenu")}
+            aria-label={t('nav.closeMobileMenu')}
           />
           <div
             id={mobileMenuId}
             className={clsx(
-              "absolute right-3 top-20 bottom-3 left-3 sm:left-auto sm:w-[420px] glass-card-gold p-5 sm:p-6 flex flex-col gap-5 overflow-y-auto transition-all duration-300",
-              mobileOpen
-                ? "translate-y-0 opacity-100"
-                : "translate-y-4 opacity-0",
+              'absolute right-3 top-20 bottom-3 left-3 sm:left-auto sm:w-[420px] glass-card-gold p-5 sm:p-6 flex flex-col gap-5 overflow-y-auto transition-all duration-300',
+              mobileOpen ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
             )}
           >
             <div className="flex items-start justify-between gap-4 border-b border-border-gold/15 pb-4">
@@ -247,14 +234,14 @@ export default function Navbar() {
                   Hazina
                 </p>
                 <p className="text-sm text-foreground-muted font-body leading-relaxed">
-                  {t("common.actions.browseData")}
+                  {t('common.actions.browseData')}
                 </p>
               </div>
               <button
                 type="button"
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gold/15 bg-surface/60 text-foreground-muted hover:text-foreground hover:border-gold/30 transition-colors"
                 onClick={() => setMobileOpen(false)}
-                aria-label={t("nav.closeMobileMenu")}
+                aria-label={t('nav.closeMobileMenu')}
               >
                 <X className="w-5 h-5" aria-hidden="true" />
               </button>
@@ -275,7 +262,7 @@ export default function Navbar() {
                     type="button"
                     onClick={handleDisconnect}
                     className="p-1 hover:text-white transition-colors"
-                    aria-label={t("common.actions.disconnect")}
+                    aria-label={t('common.actions.disconnect')}
                   >
                     <LogOut className="w-5 h-5" aria-hidden="true" />
                   </button>
@@ -287,7 +274,7 @@ export default function Navbar() {
                   className="flex items-center justify-center gap-3 w-full px-4 py-3 rounded-xl border border-gold/30 text-gold hover:bg-gold/10 transition-all text-sm font-medium"
                 >
                   <Wallet className="w-5 h-5" aria-hidden="true" />
-                  {t("common.actions.connectWallet")}
+                  {t('common.actions.connectWallet')}
                 </button>
               )}
             </div>
@@ -301,10 +288,10 @@ export default function Navbar() {
                   onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
                     clsx(
-                      "flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-sm font-medium font-body transition-all duration-200",
+                      'flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-sm font-medium font-body transition-all duration-200',
                       isActive
-                        ? "bg-gold/15 text-gold border border-gold/25"
-                        : "text-foreground-muted hover:text-foreground hover:bg-surface-2 border border-transparent",
+                        ? 'bg-gold/15 text-gold border border-gold/25'
+                        : 'text-foreground-muted hover:text-foreground hover:bg-surface-2 border border-transparent',
                     )
                   }
                 >
@@ -324,7 +311,7 @@ export default function Navbar() {
               className="btn-gold text-sm text-center mt-auto whitespace-nowrap"
               onClick={() => setMobileOpen(false)}
             >
-              {t("common.actions.browseData")}
+              {t('common.actions.browseData')}
             </Link>
           </div>
         </div>

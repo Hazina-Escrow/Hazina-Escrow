@@ -14,9 +14,11 @@ export interface EnvConfig {
 const REQUIRED_ENV_VARS = ['VITE_API_URL', 'VITE_API_KEY'] as const;
 
 function readEnableDemoMode() {
-  return String(import.meta.env.VITE_ENABLE_DEMO_MODE ?? "")
-    .trim()
-    .toLowerCase() === "true";
+  return (
+    String(import.meta.env.VITE_ENABLE_DEMO_MODE ?? '')
+      .trim()
+      .toLowerCase() === 'true'
+  );
 }
 
 /**
@@ -45,7 +47,9 @@ export function validateEnv(): EnvConfig {
   }
 
   return {
-    apiUrl: String(import.meta.env.VITE_API_URL).trim().replace(/\/+$/, ""),
+    apiUrl: String(import.meta.env.VITE_API_URL)
+      .trim()
+      .replace(/\/+$/, ''),
     enableDemoMode: readEnableDemoMode(),
   };
 }

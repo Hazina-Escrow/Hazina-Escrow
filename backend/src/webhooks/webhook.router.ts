@@ -146,33 +146,38 @@ webhooksRouter.post('/payment', async (req: Request, res: Response) => {
 });
 
 // POST /api/webhooks — register a new webhook
-webhooksRouter.post('/', requireApiKey, validateBody(createWebhookSchema), async (req: Request, res: Response) => {
-  const { sellerWallet, url, secret, events } = req.body as z.infer<typeof createWebhookSchema>;
+webhooksRouter.post(
+  '/',
+  requireApiKey,
+  validateBody(createWebhookSchema),
+  async (req: Request, res: Response) => {
+    const { sellerWallet, url, secret, events } = req.body as z.infer<typeof createWebhookSchema>;
 
-  const webhook = {
-    id: `wh-${uuidv4()}`,
-    sellerWallet,
-    url,
-    secret: encryptSecret(secret),
-    events: events ?? [],
-    active: true,
-    createdAt: new Date().toISOString(),
-  };
+    const webhook = {
+      id: `wh-${uuidv4()}`,
+      sellerWallet,
+      url,
+      secret: encryptSecret(secret),
+      events: events ?? [],
+      active: true,
+      createdAt: new Date().toISOString(),
+    };
 
-  await addWebhook(webhook);
+    await addWebhook(webhook);
 
-  return res.status(201).json({
-    success: true,
-    webhook: {
-      id: webhook.id,
-      sellerWallet: webhook.sellerWallet,
-      url: webhook.url,
-      events: webhook.events,
-      active: webhook.active,
-      createdAt: webhook.createdAt,
-    },
-  });
-});
+    return res.status(201).json({
+      success: true,
+      webhook: {
+        id: webhook.id,
+        sellerWallet: webhook.sellerWallet,
+        url: webhook.url,
+        events: webhook.events,
+        active: webhook.active,
+        createdAt: webhook.createdAt,
+      },
+    });
+  },
+);
 
 // GET /api/webhooks/:sellerWallet — list webhooks for a seller
 webhooksRouter.get('/:sellerWallet', async (req: Request, res: Response) => {
@@ -226,14 +231,14 @@ webhooksRouter.patch(
       return res.status(404).json({ error: 'Webhook not found' });
     }
 
-  const updates = req.body as z.infer<typeof updateWebhookSchema>;
-  if (updates.secret !== undefined) {
-    updates.secret = encryptSecret(updates.secret);
-  }
-  const updated = await updateWebhook(req.params.id, updates);
-  if (!updated) {
-    return res.status(500).json({ error: 'Failed to update webhook' });
-  }
+    const updates = req.body as z.infer<typeof updateWebhookSchema>;
+    if (updates.secret !== undefined) {
+      updates.secret = encryptSecret(updates.secret);
+    }
+    const updated = await updateWebhook(req.params.id, updates);
+    if (!updated) {
+      return res.status(500).json({ error: 'Failed to update webhook' });
+    }
 
     const { secret: _secret, ...rest } = updated;
     return res.json({ success: true, webhook: rest });

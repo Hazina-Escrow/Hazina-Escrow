@@ -300,7 +300,9 @@ export async function addTransaction(tx: Transaction): Promise<void> {
     store.transactions.push(tx);
     // Prune oldest entries once the rolling window is exceeded (#368)
     if (store.transactions.length > MAX_TRANSACTIONS_WINDOW) {
-      store.transactions = store.transactions.slice(store.transactions.length - MAX_TRANSACTIONS_WINDOW);
+      store.transactions = store.transactions.slice(
+        store.transactions.length - MAX_TRANSACTIONS_WINDOW,
+      );
     }
   }).finally(() => {
     if (tx.txHash) {
@@ -500,7 +502,7 @@ export async function getUnpaidTransactions(): Promise<Transaction[]> {
 export async function getTransactionsWithFailedSellerNotification(): Promise<Transaction[]> {
   const store = await readStore();
   return store.transactions.filter(
-    (t) =>
+    t =>
       t.status === 'completed' &&
       t.sellerNotificationError !== undefined &&
       t.sellerNotifiedAt === undefined,

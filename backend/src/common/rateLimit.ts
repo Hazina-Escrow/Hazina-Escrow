@@ -34,7 +34,8 @@ export function getRateLimitConfig(
   tier: 'global' | 'payments' | 'agent',
   overrides: RateLimitOptions = {},
 ): ResolvedRateLimitConfig {
-  const windowMs = overrides.windowMs ?? parsePositiveInteger(process.env.RATE_LIMIT_WINDOW_MS, DEFAULT_WINDOW_MS);
+  const windowMs =
+    overrides.windowMs ?? parsePositiveInteger(process.env.RATE_LIMIT_WINDOW_MS, DEFAULT_WINDOW_MS);
 
   const defaultMaxRequests =
     tier === 'global'
@@ -50,7 +51,8 @@ export function getRateLimitConfig(
         ? 'RATE_LIMIT_PAYMENTS_MAX'
         : 'RATE_LIMIT_AGENT_MAX';
 
-  const maxRequests = overrides.maxRequests ?? parsePositiveInteger(process.env[envKey], defaultMaxRequests);
+  const maxRequests =
+    overrides.maxRequests ?? parsePositiveInteger(process.env[envKey], defaultMaxRequests);
 
   return { windowMs, maxRequests };
 }

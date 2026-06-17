@@ -1,1 +1,1 @@
-export { default, useFocusTrap } from "../../hooks/useFocusTrap";
+export { default, useFocusTrap } from '../../hooks/useFocusTrap';

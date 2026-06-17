@@ -47,7 +47,7 @@ class TransactionEventEmitter extends EventEmitter {
     transactionId: string,
     datasetId: string,
     status: TransactionStatus,
-    metadata?: Partial<TransactionUpdateEvent['data']>
+    metadata?: Partial<TransactionUpdateEvent['data']>,
   ): void {
     const event: TransactionUpdateEvent = {
       type: 'transaction:update',
@@ -69,11 +69,7 @@ class TransactionEventEmitter extends EventEmitter {
   /**
    * Helper to create and emit a payment received event
    */
-  receivePayment(
-    transactionId: string,
-    datasetId: string,
-    amount: string
-  ): void {
+  receivePayment(transactionId: string, datasetId: string, amount: string): void {
     const event: PaymentReceivedEvent = {
       type: 'payment:received',
       data: {
@@ -93,7 +89,7 @@ class TransactionEventEmitter extends EventEmitter {
     transactionId: string,
     datasetId: string,
     sellerAmount: string,
-    platformAmount: string
+    platformAmount: string,
   ): void {
     const event: PaymentForwardedEvent = {
       type: 'payment:forwarded',
@@ -111,11 +107,7 @@ class TransactionEventEmitter extends EventEmitter {
   /**
    * Helper to create and emit a dataset queried event
    */
-  queryDataset(
-    transactionId: string,
-    datasetId: string,
-    queryCount: number
-  ): void {
+  queryDataset(transactionId: string, datasetId: string, queryCount: number): void {
     const event: DatasetQueryEvent = {
       type: 'dataset:queried',
       data: {

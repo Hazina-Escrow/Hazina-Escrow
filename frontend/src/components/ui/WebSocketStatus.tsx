@@ -48,7 +48,7 @@ export function WebSocketStatus({ connected, error, className }: WebSocketStatus
         getStatusBg(),
         getStatusColor(),
         'border-current/20',
-        className
+        className,
       )}
       role="status"
       aria-live="polite"

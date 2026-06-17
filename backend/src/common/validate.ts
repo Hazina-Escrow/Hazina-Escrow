@@ -9,7 +9,7 @@ export function validateBody(schema: ZodTypeAny) {
       const fieldMessages = Object.values(flat.fieldErrors)
         .flat()
         .filter((m): m is string => typeof m === 'string' && m.length > 0);
-      const formMessages = flat.formErrors.filter((m) => m.length > 0);
+      const formMessages = flat.formErrors.filter(m => m.length > 0);
       const allMessages = [...fieldMessages, ...formMessages];
       res.status(400).json({
         error: allMessages.length > 0 ? allMessages.join('; ') : 'Validation failed',
