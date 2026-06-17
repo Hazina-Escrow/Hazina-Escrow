@@ -69,9 +69,7 @@ export default function ToastItem({ toast, onDismiss }: Props) {
       )}
 
       <div className="flex items-start gap-3 p-4 pr-10">
-        <span className={clsx('mt-0.5 flex-shrink-0', styles.iconColor)}>
-          {styles.icon}
-        </span>
+        <span className={clsx('mt-0.5 flex-shrink-0', styles.iconColor)}>{styles.icon}</span>
 
         <div className="flex-1 min-w-0">
           <p className="text-sm font-body font-semibold text-foreground leading-snug">

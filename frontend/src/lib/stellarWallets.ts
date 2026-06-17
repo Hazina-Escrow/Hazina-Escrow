@@ -31,15 +31,11 @@ const PUBLIC_PASSPHRASE = 'Public Global Stellar Network ; September 2015';
 function configuredUsdcIssuer() {
   const { usdcIssuer, stellarNetwork } = getEnv();
   if (usdcIssuer) return usdcIssuer;
-  return stellarNetwork === 'public'
-    ? MAINNET_USDC_ISSUER
-    : TESTNET_USDC_ISSUER;
+  return stellarNetwork === 'public' ? MAINNET_USDC_ISSUER : TESTNET_USDC_ISSUER;
 }
 
 function albedoNetwork() {
-  return getEnv().stellarNetwork === 'public'
-    ? 'public'
-    : 'testnet';
+  return getEnv().stellarNetwork === 'public' ? 'public' : 'testnet';
 }
 
 function networkPassphrase() {

@@ -4,10 +4,7 @@ export interface TranslationDictionary {
   [key: string]: TranslationValue;
 }
 
-export type TranslationParams = Record<
-  string,
-  string | number | boolean | Date | null | undefined
->;
+export type TranslationParams = Record<string, string | number | boolean | Date | null | undefined>;
 
 type Join<K extends string, P extends string> = `${K}.${P}`;
 
@@ -16,9 +13,9 @@ export type TranslationKey<T extends TranslationDictionary> = {
     ? K
     : T[K] extends readonly string[]
       ? never
-    : T[K] extends TranslationDictionary
-      ? K | Join<K, TranslationKey<T[K]>>
-      : never;
+      : T[K] extends TranslationDictionary
+        ? K | Join<K, TranslationKey<T[K]>>
+        : never;
 }[Extract<keyof T, string>];
 
 export type TranslationShape<T> = {
@@ -27,6 +24,6 @@ export type TranslationShape<T> = {
     : T[K] extends readonly string[]
       ? readonly string[]
       : T[K] extends TranslationDictionary
-      ? TranslationShape<T[K]>
-      : never;
+        ? TranslationShape<T[K]>
+        : never;
 };

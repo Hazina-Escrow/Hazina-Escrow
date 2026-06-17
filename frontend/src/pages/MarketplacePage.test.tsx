@@ -89,9 +89,7 @@ describe('MarketplacePage', () => {
     renderMarketplacePage(['/marketplace?page=2']);
 
     await waitFor(() => {
-      expect(api.getDatasets).toHaveBeenCalledWith(
-        expect.objectContaining({ page: 2, limit: 12 }),
-      );
+      expect(api.getDatasets).toHaveBeenCalledWith(expect.objectContaining({ page: 2, limit: 12 }));
     });
   });
 
@@ -105,7 +103,7 @@ describe('MarketplacePage', () => {
     const nextButton = await screen.findByRole('button', { name: /Next/i });
     fireEvent.click(nextButton);
 
-      await waitFor(() => {
+    await waitFor(() => {
       expect(window.location.search).toContain('page=2');
       expect(api.getDatasets).toHaveBeenLastCalledWith(
         expect.objectContaining({ page: 2, limit: 12 }),

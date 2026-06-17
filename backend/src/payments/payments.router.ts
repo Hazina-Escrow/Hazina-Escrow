@@ -165,8 +165,6 @@ const verifyDemoSchema = z.object({
  *         description: Dataset not found
  */
 
-
-
 // POST /api/query/:id — initiate query, returns 402 Payment Required
 paymentsRouter.post('/query/:id', async (req: Request, res: Response) => {
   const dataset = await getDataset(req.params.id);
@@ -341,11 +339,15 @@ paymentsRouter.get('/admin/payouts/stuck', requireAdminKey, (_req: Request, res:
 });
 
 // POST /api/admin/payouts/retry — trigger retry sweep now
-paymentsRouter.post('/admin/payouts/retry', requireAdminKey, async (_req: Request, res: Response) => {
-  const processed = await runDuePayoutRetries();
-  scheduleRetrySweep(1_000);
-  return res.json({ success: true, processed });
-});
+paymentsRouter.post(
+  '/admin/payouts/retry',
+  requireAdminKey,
+  async (_req: Request, res: Response) => {
+    const processed = await runDuePayoutRetries();
+    scheduleRetrySweep(1_000);
+    return res.json({ success: true, processed });
+  },
+);
 
 // POST /api/verify/:id/demo — demo mode (skip Stellar check) for hackathon
 paymentsRouter.post(

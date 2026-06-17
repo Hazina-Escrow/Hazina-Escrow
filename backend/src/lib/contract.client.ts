@@ -13,7 +13,7 @@ export interface EscrowRecord {
   dataset_id: string;
   buyer: string;
   seller: string;
-  amount: bigint;  // in stroops (7 decimal places: 1 USDC = 10_000_000)
+  amount: bigint; // in stroops (7 decimal places: 1 USDC = 10_000_000)
   released: boolean;
   refunded: boolean;
 }

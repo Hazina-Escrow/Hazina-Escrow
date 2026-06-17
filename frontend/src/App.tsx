@@ -1,17 +1,17 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect } from "react";
-import type { ReactNode } from "react";
-import Navbar from "./components/layout/Navbar";
-import OnboardingTour from "./components/OnboardingTour";
-import LandingPage from "./pages/LandingPage";
-import MarketplacePage from "./pages/MarketplacePage";
-import SellPage from "./pages/SellPage";
-import DashboardPage from "./pages/DashboardPage";
-import AgentPage from "./pages/AgentPage";
-import TermsPage from "./pages/TermsPage";
-import { useI18n } from "./i18n";
-import ErrorBoundary from "./components/ErrorBoundary";
-import { ToastProvider } from "./components/ui/ToastProvider";
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import type { ReactNode } from 'react';
+import Navbar from './components/layout/Navbar';
+import OnboardingTour from './components/OnboardingTour';
+import LandingPage from './pages/LandingPage';
+import MarketplacePage from './pages/MarketplacePage';
+import SellPage from './pages/SellPage';
+import DashboardPage from './pages/DashboardPage';
+import AgentPage from './pages/AgentPage';
+import TermsPage from './pages/TermsPage';
+import { useI18n } from './i18n';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ToastProvider } from './components/ui/ToastProvider';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -21,39 +21,88 @@ function ScrollToTop() {
   return null;
 }
 
-import { Helmet } from "react-helmet-async";
+import { Helmet } from 'react-helmet-async';
 
 export default function App() {
   return (
     <ToastProvider>
-    <BrowserRouter>
-      <Helmet
-        defaultTitle="Hazina — Data Escrow Marketplace"
-        titleTemplate="%s | Hazina"
-      >
-        <meta name="description" content="Decentralized data escrow and research platform using Stellar micropayments." />
-      </Helmet>
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-gold focus:text-void focus:rounded-lg focus:font-semibold focus:outline-none focus:ring-2 focus:ring-gold-light"
-      >
-        Skip to content
-      </a>
-      <ScrollToTop />
-      <Navbar />
-      <OnboardingTour />
-      <main id="main-content" tabIndex={-1}>
-        <Routes>
-          <Route path="/" element={<RouteBoundary label="Landing"><LandingPage /></RouteBoundary>} />
-          <Route path="/marketplace" element={<RouteBoundary label="Marketplace"><MarketplacePage /></RouteBoundary>} />
-          <Route path="/sell" element={<RouteBoundary label="Sell"><SellPage /></RouteBoundary>} />
-          <Route path="/dashboard" element={<RouteBoundary label="Dashboard"><DashboardPage /></RouteBoundary>} />
-          <Route path="/terms" element={<RouteBoundary label="Terms"><TermsPage /></RouteBoundary>} />
-          <Route path="/agent" element={<RouteBoundary label="Agent"><AgentPage /></RouteBoundary>} />
-          <Route path="*" element={<RouteBoundary><NotFound /></RouteBoundary>} />
-        </Routes>
-      </main>
-    </BrowserRouter>
+      <BrowserRouter>
+        <Helmet defaultTitle="Hazina — Data Escrow Marketplace" titleTemplate="%s | Hazina">
+          <meta
+            name="description"
+            content="Decentralized data escrow and research platform using Stellar micropayments."
+          />
+        </Helmet>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-gold focus:text-void focus:rounded-lg focus:font-semibold focus:outline-none focus:ring-2 focus:ring-gold-light"
+        >
+          Skip to content
+        </a>
+        <ScrollToTop />
+        <Navbar />
+        <OnboardingTour />
+        <main id="main-content" tabIndex={-1}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <RouteBoundary label="Landing">
+                  <LandingPage />
+                </RouteBoundary>
+              }
+            />
+            <Route
+              path="/marketplace"
+              element={
+                <RouteBoundary label="Marketplace">
+                  <MarketplacePage />
+                </RouteBoundary>
+              }
+            />
+            <Route
+              path="/sell"
+              element={
+                <RouteBoundary label="Sell">
+                  <SellPage />
+                </RouteBoundary>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <RouteBoundary label="Dashboard">
+                  <DashboardPage />
+                </RouteBoundary>
+              }
+            />
+            <Route
+              path="/terms"
+              element={
+                <RouteBoundary label="Terms">
+                  <TermsPage />
+                </RouteBoundary>
+              }
+            />
+            <Route
+              path="/agent"
+              element={
+                <RouteBoundary label="Agent">
+                  <AgentPage />
+                </RouteBoundary>
+              }
+            />
+            <Route
+              path="*"
+              element={
+                <RouteBoundary>
+                  <NotFound />
+                </RouteBoundary>
+              }
+            />
+          </Routes>
+        </main>
+      </BrowserRouter>
     </ToastProvider>
   );
 }
@@ -73,13 +122,11 @@ function NotFound() {
       <div>
         <p className="font-display text-8xl font-bold text-gold/20 mb-4">404</p>
         <h1 className="font-display text-3xl font-bold text-foreground mb-3">
-          {t("notFound.title")}
+          {t('notFound.title')}
         </h1>
-        <p className="text-foreground-muted font-body mb-8">
-          {t("notFound.body")}
-        </p>
+        <p className="text-foreground-muted font-body mb-8">{t('notFound.body')}</p>
         <a href="/" className="btn-gold px-8 py-3 text-sm inline-block">
-          {t("common.actions.goHome")}
+          {t('common.actions.goHome')}
         </a>
       </div>
     </div>

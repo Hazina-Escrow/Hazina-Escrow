@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Upload,
   CheckCircle,
@@ -40,11 +40,11 @@ const INITIAL: FormState = {
   dataText: '',
 };
 
-const STORAGE_KEY = "hazina_sell_form_draft";
+const STORAGE_KEY = 'hazina_sell_form_draft';
 const DRAFT_EXPIRY_HOURS = 24;
 
 interface StoredDraft {
-  data: Omit<FormState, "sellerWallet">; // Exclude sensitive wallet address
+  data: Omit<FormState, 'sellerWallet'>; // Exclude sensitive wallet address
   timestamp: number;
 }
 
@@ -69,7 +69,7 @@ function loadDraft(): {
     const restoredForm: FormState = {
       ...INITIAL,
       ...stored.data,
-      sellerWallet: "", // Never restore sensitive wallet address
+      sellerWallet: '', // Never restore sensitive wallet address
     };
 
     return { form: restoredForm, wasRestored: true };
@@ -105,7 +105,6 @@ function clearDraft(): void {
   }
 }
 
-
 export default function SellPage() {
   const { locale, t } = useI18n();
   const catalog = getCatalog(locale);
@@ -117,7 +116,7 @@ export default function SellPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
-  const [jsonError, setJsonError] = useState("");
+  const [jsonError, setJsonError] = useState('');
   const [toast, setToast] = useState<ToastProps | null>(null);
 
   // Track if we've shown the draft restored toast
@@ -130,8 +129,8 @@ export default function SellPage() {
       const { wasRestored } = loadDraft();
       if (wasRestored) {
         setToast({
-          message: t("sell.messages.draftRestored"),
-          type: "success",
+          message: t('sell.messages.draftRestored'),
+          type: 'success',
           duration: 3000,
         });
       }
@@ -675,9 +674,7 @@ export default function SellPage() {
       </div>
 
       {/* Toast notification */}
-      {toast && (
-        <Toast {...toast} onClose={() => setToast(null)} />
-      )}
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

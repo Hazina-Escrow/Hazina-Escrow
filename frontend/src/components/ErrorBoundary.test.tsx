@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import ErrorBoundary from "./ErrorBoundary";
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import ErrorBoundary from './ErrorBoundary';
 
 function Bomb(): never {
-  throw new Error("Boom");
+  throw new Error('Boom');
 }
 
-describe("ErrorBoundary", () => {
-  it("renders a fallback UI and calls onReset", () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+describe('ErrorBoundary', () => {
+  it('renders a fallback UI and calls onReset', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const onReset = vi.fn();
 
     render(
@@ -18,10 +18,10 @@ describe("ErrorBoundary", () => {
       </ErrorBoundary>,
     );
 
-    expect(screen.getByText("Something went wrong in Test")).toBeTruthy();
-    expect(screen.getByText("Boom")).toBeTruthy();
+    expect(screen.getByText('Something went wrong in Test')).toBeTruthy();
+    expect(screen.getByText('Boom')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 });

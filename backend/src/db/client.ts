@@ -21,7 +21,11 @@ const db = (() => {
     const sqlite = new Database(sqliteDbPath);
     sqlite.pragma('journal_mode = WAL');
     return drizzleSqlite(sqlite, {
-      schema: { datasets: datasetsSqlite, transactions: transactionsSqlite, webhooks: webhooksSqlite },
+      schema: {
+        datasets: datasetsSqlite,
+        transactions: transactionsSqlite,
+        webhooks: webhooksSqlite,
+      },
     });
   }
 })();

@@ -10,11 +10,7 @@ vi.mock('@anthropic-ai/sdk', () => ({
   })),
 }));
 
-import {
-  parseBudget,
-  parseRiskTolerance,
-  synthesizeResearch,
-} from './research.service';
+import { parseBudget, parseRiskTolerance, synthesizeResearch } from './research.service';
 
 describe('parseRiskTolerance', () => {
   it('returns low for low-risk synonyms', () => {
