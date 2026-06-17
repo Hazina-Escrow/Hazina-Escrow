@@ -19,6 +19,7 @@ import { launchStellarWalletProvider } from '../../lib/stellarWallets';
 import type { StellarWalletProvider } from '../../lib/stellarWallets';
 import clsx from 'clsx';
 import { getCatalog, useI18n } from '../../i18n';
+import { isDemoModeEnabled } from '../../lib/env';
 
 type Step = 'details' | 'payment' | 'verifying' | 'result' | 'error';
 

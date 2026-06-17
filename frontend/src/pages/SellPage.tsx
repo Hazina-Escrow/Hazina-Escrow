@@ -71,6 +71,10 @@ function loadDraft(): {
       ...INITIAL,
       ...stored.data,
       sellerWallet: '', // Never restore sensitive wallet address
+      // Normalise price string to strip trailing zeros (e.g. '0.10' → '0.1')
+      pricePerQuery: stored.data.pricePerQuery
+        ? String(parseFloat(stored.data.pricePerQuery))
+        : INITIAL.pricePerQuery,
     };
 
     return { form: restoredForm, wasRestored: true };
@@ -124,6 +128,7 @@ export default function SellPage() {
 
   // Track if we've shown the draft restored toast
   const hasShownRestoreToastRef = useRef(false);
+  const confirmBtnRef = useRef<HTMLButtonElement>(null);
 
   // Show draft restored notification on first load
   useEffect(() => {

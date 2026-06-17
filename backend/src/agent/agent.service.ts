@@ -202,8 +202,12 @@ async function _executeResearch(
 
   // Budget guard: greedily select datasets that fit within AGENT_FEE_USDC,
   // sorted cheapest-first so we maximise coverage.
+  type SellerWithDataset = {
+    seller: (typeof availableSellers)[0]['seller'];
+    dataset: NonNullable<(typeof availableSellers)[0]['dataset']>;
+  };
   const sellersWithDataset = availableSellers.filter(
-    (s): s is { seller: (typeof availableSellers)[0]['seller']; dataset: NonNullable<(typeof availableSellers)[0]['dataset']> } => s.dataset !== undefined,
+    (s): s is SellerWithDataset => s.dataset !== undefined,
   );
   const sortedSellers = [...sellersWithDataset].sort(
     (a, b) => a.dataset.pricePerQuery - b.dataset.pricePerQuery,
