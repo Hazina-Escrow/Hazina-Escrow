@@ -20,6 +20,7 @@ export interface Transaction {
   id: string;
   datasetId: string;
   txHash: string;
+  buyerWallet?: string;
   amount: number;
   buyerQuery?: string;
   aiSummary?: string;
@@ -84,7 +85,10 @@ export async function writeStore(store: Store): Promise<void> {
 function enqueue<T>(fn: (store: Store) => Promise<[Store, T]>): Promise<T> {
   let resolve!: (value: T) => void;
   let reject!: (reason: unknown) => void;
-  const result = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  const result = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
   mutationQueue = mutationQueue.then(async () => {
     try {
       const store = await readRaw();
@@ -99,16 +103,19 @@ function enqueue<T>(fn: (store: Store) => Promise<[Store, T]>): Promise<T> {
 }
 
 export async function getDataset(id: string): Promise<Dataset | undefined> {
-  return (await readStore()).datasets.find((d) => d.id === id);
+  return (await readStore()).datasets.find(d => d.id === id);
 }
 
 export async function getAllDatasets(): Promise<Dataset[]> {
   return (await readStore()).datasets;
 }
 
-export async function updateDataset(id: string, updates: Partial<Dataset>): Promise<Dataset | null> {
-  return enqueue(async (store) => {
-    const idx = store.datasets.findIndex((d) => d.id === id);
+export async function updateDataset(
+  id: string,
+  updates: Partial<Dataset>,
+): Promise<Dataset | null> {
+  return enqueue(async store => {
+    const idx = store.datasets.findIndex(d => d.id === id);
     if (idx === -1) return [store, null];
     store.datasets[idx] = { ...store.datasets[idx], ...updates };
     return [store, store.datasets[idx]];
@@ -116,7 +123,7 @@ export async function updateDataset(id: string, updates: Partial<Dataset>): Prom
 }
 
 export async function addDataset(dataset: Dataset): Promise<void> {
-  return enqueue(async (store) => {
+  return enqueue(async store => {
     store.datasets.push(dataset);
     return [store, undefined];
   });
@@ -124,7 +131,7 @@ export async function addDataset(dataset: Dataset): Promise<void> {
 
 export async function addTransaction(tx: Transaction): Promise<void> {
   pendingTxHashes.add(tx.txHash);
-  return enqueue(async (store) => {
+  return enqueue(async store => {
     store.transactions.push(tx);
     return [store, undefined];
   }).finally(() => {
@@ -132,9 +139,15 @@ export async function addTransaction(tx: Transaction): Promise<void> {
   });
 }
 
-export async function getTransactions(datasetId?: string, limit?: number, offset?: number): Promise<Transaction[]> {
+export async function getTransactions(
+  datasetId?: string,
+  limit?: number,
+  offset?: number,
+): Promise<Transaction[]> {
   const store = await readStore();
-  let transactions = datasetId ? store.transactions.filter((t) => t.datasetId === datasetId) : store.transactions;
+  let transactions = datasetId
+    ? store.transactions.filter(t => t.datasetId === datasetId)
+    : store.transactions;
 
   if (offset !== undefined && offset > 0) {
     transactions = transactions.slice(offset);
@@ -149,12 +162,14 @@ export async function getTransactions(datasetId?: string, limit?: number, offset
 
 export async function getTransactionsCount(datasetId?: string): Promise<number> {
   const store = await readStore();
-  return datasetId ? store.transactions.filter((t) => t.datasetId === datasetId).length : store.transactions.length;
+  return datasetId
+    ? store.transactions.filter(t => t.datasetId === datasetId).length
+    : store.transactions.length;
 }
 
 export async function txHashUsed(txHash: string): Promise<boolean> {
   if (pendingTxHashes.has(txHash)) return true;
-  return (await readStore()).transactions.some((t) => t.txHash === txHash);
+  return (await readStore()).transactions.some(t => t.txHash === txHash);
 }
 
 /* ------------------------------------------------------------------ */
@@ -166,32 +181,35 @@ export async function getAllWebhooks(): Promise<WebhookSubscription[]> {
 }
 
 export async function getWebhooksForSeller(sellerWallet: string): Promise<WebhookSubscription[]> {
-  return (await readStore()).webhooks.filter((w) => w.sellerWallet === sellerWallet && w.active);
+  return (await readStore()).webhooks.filter(w => w.sellerWallet === sellerWallet && w.active);
 }
 
 export async function getWebhookById(id: string): Promise<WebhookSubscription | undefined> {
-  return (await readStore()).webhooks.find((w) => w.id === id);
+  return (await readStore()).webhooks.find(w => w.id === id);
 }
 
 export async function addWebhook(webhook: WebhookSubscription): Promise<void> {
-  return enqueue(async (store) => {
+  return enqueue(async store => {
     store.webhooks.push(webhook);
     return [store, undefined];
   });
 }
 
 export async function removeWebhook(id: string): Promise<boolean> {
-  return enqueue(async (store) => {
-    const idx = store.webhooks.findIndex((w) => w.id === id);
+  return enqueue(async store => {
+    const idx = store.webhooks.findIndex(w => w.id === id);
     if (idx === -1) return [store, false];
     store.webhooks.splice(idx, 1);
     return [store, true];
   });
 }
 
-export async function updateWebhook(id: string, updates: Partial<WebhookSubscription>): Promise<WebhookSubscription | null> {
-  return enqueue(async (store) => {
-    const idx = store.webhooks.findIndex((w) => w.id === id);
+export async function updateWebhook(
+  id: string,
+  updates: Partial<WebhookSubscription>,
+): Promise<WebhookSubscription | null> {
+  return enqueue(async store => {
+    const idx = store.webhooks.findIndex(w => w.id === id);
     if (idx === -1) return [store, null];
     store.webhooks[idx] = { ...store.webhooks[idx], ...updates };
     return [store, store.webhooks[idx]];
@@ -200,5 +218,5 @@ export async function updateWebhook(id: string, updates: Partial<WebhookSubscrip
 
 export async function getUnpaidTransactions(): Promise<Transaction[]> {
   const store = await readStore();
-  return store.transactions.filter((t) => t.sellerPaid === false);
+  return store.transactions.filter(t => t.sellerPaid === false);
 }
