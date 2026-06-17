@@ -1,18 +1,15 @@
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useEffect } from 'react';
 
 const FOCUSABLE_SELECTOR = [
-  "a[href]",
-  "button:not([disabled])",
-  "textarea:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
   "[tabindex]:not([tabindex='-1'])",
-].join(", ");
+].join(', ');
 
-export function useFocusTrap(
-  containerRef: RefObject<HTMLElement>,
-  isActive = true,
-) {
+export function useFocusTrap(containerRef: RefObject<HTMLElement>, isActive = true) {
   useEffect(() => {
     if (!isActive) {
       return;
@@ -25,20 +22,17 @@ export function useFocusTrap(
 
     const focusableElements = Array.from(
       container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-    ).filter((element) => !element.hasAttribute("disabled"));
+    ).filter(element => !element.hasAttribute('disabled'));
 
     const firstElement = focusableElements[0] ?? container;
-    const lastElement =
-      focusableElements[focusableElements.length - 1] ?? container;
+    const lastElement = focusableElements[focusableElements.length - 1] ?? container;
     const previousActiveElement =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     firstElement.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") {
+      if (event.key !== 'Tab') {
         return;
       }
 
@@ -59,10 +53,10 @@ export function useFocusTrap(
       }
     };
 
-    container.addEventListener("keydown", handleKeyDown);
+    container.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      container.removeEventListener("keydown", handleKeyDown);
+      container.removeEventListener('keydown', handleKeyDown);
       previousActiveElement?.focus();
     };
   }, [containerRef, isActive]);

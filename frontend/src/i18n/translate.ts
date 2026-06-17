@@ -1,14 +1,20 @@
-import { catalogs, DEFAULT_LOCALE, type MessageCatalog, type MessageKey, type SupportedLocale } from "./catalog";
-import type { TranslationDictionary, TranslationParams } from "./types";
+import {
+  catalogs,
+  DEFAULT_LOCALE,
+  type MessageCatalog,
+  type MessageKey,
+  type SupportedLocale,
+} from './catalog';
+import type { TranslationDictionary, TranslationParams } from './types';
 
 function isTranslationDictionary(value: unknown): value is TranslationDictionary {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function resolveMessage(catalog: MessageCatalog, key: MessageKey): string | null {
   let current: unknown = catalog;
 
-  for (const segment of key.split(".")) {
+  for (const segment of key.split('.')) {
     if (!isTranslationDictionary(current) || !(segment in current)) {
       return null;
     }
@@ -16,7 +22,7 @@ function resolveMessage(catalog: MessageCatalog, key: MessageKey): string | null
     current = current[segment];
   }
 
-  return typeof current === "string" ? current : null;
+  return typeof current === 'string' ? current : null;
 }
 
 function serializeParamValue(value: TranslationParams[string]): string {
@@ -63,11 +69,11 @@ export function formatNumber(
 export function formatCurrency(
   locale: SupportedLocale,
   value: number,
-  currency = "USD",
+  currency = 'USD',
   options?: Intl.NumberFormatOptions,
 ): string {
   return new Intl.NumberFormat(locale, {
-    style: "currency",
+    style: 'currency',
     currency,
     ...options,
   }).format(value);

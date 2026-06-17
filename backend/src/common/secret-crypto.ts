@@ -7,7 +7,9 @@ const SEPARATOR = ':';
 function getKey(): Buffer {
   const raw = process.env.WEBHOOK_SECRET_KEY ?? '';
   if (!raw) {
-    throw new Error('WEBHOOK_SECRET_KEY env var is not set — cannot encrypt/decrypt webhook secrets');
+    throw new Error(
+      'WEBHOOK_SECRET_KEY env var is not set — cannot encrypt/decrypt webhook secrets',
+    );
   }
   if (raw.length !== 64) {
     throw new Error('WEBHOOK_SECRET_KEY must be a 64-character hex string (32 bytes)');

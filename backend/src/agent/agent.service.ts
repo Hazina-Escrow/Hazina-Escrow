@@ -6,6 +6,7 @@ import {
   addTransaction,
   txHashUsed,
   getAgentJobByTxHash,
+  getTransactionByHash,
   reserveTxHash,
 } from '../common/storage';
 import { verifyStellarPayment } from '../payments/stellar.service';
@@ -95,18 +96,16 @@ export async function runResearchAgent(
   if (await txHashUsed(humanTxHash)) {
     const existing = await getAgentJobByTxHash(humanTxHash);
 
-    if (!existing) {
-      throw new Error('Transaction hash already used');
+    if (existing) {
+      const result: IdempotentJobResult = {
+        idempotent: true,
+        txHash: humanTxHash,
+        query: existing.buyerQuery,
+        cachedSummary: existing.aiSummary,
+        originalTimestamp: existing.timestamp,
+      };
+      return result;
     }
-
-    const result: IdempotentJobResult = {
-      idempotent: true,
-      txHash: humanTxHash,
-      query: existing.buyerQuery,
-      cachedSummary: existing.aiSummary,
-      originalTimestamp: existing.timestamp,
-    };
-    return result;
   }
 
   // Reserve the hash immediately so concurrent requests with the same hash are
@@ -118,6 +117,28 @@ export async function runResearchAgent(
   return new Promise<AgentJob | IdempotentJobResult>((resolve, reject) => {
     agentJobQueue = agentJobQueue.then(async () => {
       try {
+        // Re-check idempotency inside the queue — prevents the race where two
+        // concurrent requests both pass the pre-queue check.
+        const existingJob = await getAgentJobByTxHash(humanTxHash);
+        if (existingJob) {
+          resolve({
+            idempotent: true,
+            txHash: humanTxHash,
+            query: existingJob.buyerQuery,
+            cachedSummary: existingJob.aiSummary,
+            originalTimestamp: existingJob.timestamp,
+          });
+          return;
+        }
+
+        // Check if the hash was used for ANY other transaction (non-agent job).
+        // Since we are inside the serialised queue, if it's not in the store yet,
+        // it must be a new job (the reservation is handled by reserveTxHash).
+        const existingAny = await getTransactionByHash(humanTxHash);
+        if (existingAny) {
+          throw new Error('Transaction hash already used');
+        }
+
         const escrowWallet = process.env.ESCROW_WALLET;
         if (!escrowWallet) throw new Error('ESCROW_WALLET not configured');
 

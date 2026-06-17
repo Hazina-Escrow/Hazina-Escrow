@@ -10,9 +10,7 @@ const RAW_RATE = process.env.PLATFORM_FEE_RATE ?? '0.05';
 const PARSED_RATE = parseFloat(RAW_RATE);
 
 if (!Number.isFinite(PARSED_RATE) || PARSED_RATE < 0 || PARSED_RATE > 1) {
-  throw new Error(
-    `PLATFORM_FEE_RATE must be a number in [0, 1], got "${RAW_RATE}"`,
-  );
+  throw new Error(`PLATFORM_FEE_RATE must be a number in [0, 1], got "${RAW_RATE}"`);
 }
 
 /** Fraction of every payment that the platform keeps (default 5 %). */

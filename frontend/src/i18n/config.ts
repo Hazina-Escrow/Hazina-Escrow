@@ -1,6 +1,6 @@
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES, type SupportedLocale } from "./catalog";
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES, type SupportedLocale } from './catalog';
 
-export const I18N_STORAGE_KEY = "hazina.locale";
+export const I18N_STORAGE_KEY = 'hazina.locale';
 
 export function isSupportedLocale(value: string): value is SupportedLocale {
   return SUPPORTED_LOCALES.includes(value as SupportedLocale);
@@ -16,13 +16,13 @@ export function normalizeLocale(input: string | null | undefined): SupportedLoca
     return normalized;
   }
 
-  const base = normalized.split("-")[0];
+  const base = normalized.split('-')[0];
   if (!base) return null;
   return isSupportedLocale(base) ? base : null;
 }
 
 export function detectBrowserLocale(): SupportedLocale {
-  if (typeof navigator === "undefined") {
+  if (typeof navigator === 'undefined') {
     return DEFAULT_LOCALE;
   }
 
@@ -38,7 +38,7 @@ export function detectBrowserLocale(): SupportedLocale {
 }
 
 export function loadStoredLocale(storageKey = I18N_STORAGE_KEY): SupportedLocale | null {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
 

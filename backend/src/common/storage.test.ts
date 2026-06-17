@@ -80,7 +80,7 @@ describe('storage', () => {
     expect(updated?.queriesServed).toBe(3);
     expect(updated?.totalEarned).toBe(1.425);
 
-    const persisted = (await readStore()).datasets.find((d) => d.id === FIXTURE_DATASET.id);
+    const persisted = (await readStore()).datasets.find(d => d.id === FIXTURE_DATASET.id);
     expect(persisted?.queriesServed).toBe(3);
     expect(persisted?.totalEarned).toBe(1.425);
   });
@@ -105,7 +105,7 @@ describe('storage', () => {
 
     const txs = (await readStore()).transactions;
     expect(txs).toHaveLength(25);
-    expect(new Set(txs.map((tx) => tx.txHash)).size).toBe(25);
+    expect(new Set(txs.map(tx => tx.txHash)).size).toBe(25);
   });
 
   it('keeps reads and writes consistent under concurrent load', async () => {
@@ -124,11 +124,11 @@ describe('storage', () => {
     await Promise.all(writes);
 
     for (const snapshot of snapshots) {
-      expect(snapshot.datasets.some((dataset) => dataset.id === FIXTURE_DATASET.id)).toBe(true);
+      expect(snapshot.datasets.some(dataset => dataset.id === FIXTURE_DATASET.id)).toBe(true);
     }
 
     const finalStore = await readStore();
     expect(finalStore.transactions).toHaveLength(10);
-    expect(new Set(finalStore.transactions.map((tx) => tx.txHash)).size).toBe(10);
+    expect(new Set(finalStore.transactions.map(tx => tx.txHash)).size).toBe(10);
   });
 });
