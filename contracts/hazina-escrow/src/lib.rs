@@ -370,7 +370,6 @@ impl HazinaEscrow {
     }
 
 
-
     // ─── Circuit-breaker config ───────────────────────────────────────────────
 
     pub fn set_max_escrow_amount(env: Env, admin: Address, max_amount: i128) {
@@ -505,7 +504,6 @@ impl HazinaEscrow {
             panic_with_error!(&env, HazinaEscrowError::EscrowNotFound);
         }
 
-
         Self::assert_valid_token(&env, &token);
 
         Self::require_operational_address(&env, &buyer);
@@ -602,7 +600,6 @@ impl HazinaEscrow {
         if record.buyer != buyer {
             panic_with_error!(&env, HazinaEscrowError::NotBuyer);
         }
-
 
         if record.buyer_confirmed {
             panic_with_error!(&env, HazinaEscrowError::AlreadyConfirmed);
@@ -850,6 +847,7 @@ impl HazinaEscrow {
 
     // ─── Private helpers ─────────────────────────────────────────────────────
 
+
     fn assert_admin(env: &Env, caller: &Address) {
         let admin = Self::get_admin(env);
         if admin != *caller {
@@ -995,6 +993,7 @@ mod tests {
             .get(&EscrowKey::Record(escrow_id))
             .unwrap_or_else(|| panic_with_error!(env, HazinaEscrowError::EscrowNotFound))
     }
+
 
     fn check_amount_circuit_breaker(env: &Env, amount: i128) {
         let max: i128 = env
@@ -1792,6 +1791,7 @@ mod fuzz_tests {
         testutils::Address as _,
         token::{Client as TokenClient, StellarAssetClient},
     };
+
 
     #[test]
     #[should_panic(expected = "Error(Contract, #12)")]

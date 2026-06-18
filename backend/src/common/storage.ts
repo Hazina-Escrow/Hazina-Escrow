@@ -64,7 +64,7 @@ export interface Transaction {
   buyerWallet?: string;
 
   memo?: string;
-
+ main
   amount: number;
   status?:
     | 'pending'
@@ -319,7 +319,7 @@ export async function addDataset(dataset: Dataset): Promise<void> {
   return enqueue(async store => {
 
   return updateStore(async store => {
- main
+
     store.datasets.push(dataset);
   });
 }
@@ -348,7 +348,6 @@ export async function addTransaction(tx: Transaction): Promise<void> {
     }
   });
 }
-
 
 
 export async function getTransactionByHash(txHash: string): Promise<Transaction | undefined> {
