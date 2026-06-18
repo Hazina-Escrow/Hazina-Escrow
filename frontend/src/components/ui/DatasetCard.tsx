@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingCart, TrendingUp, User, Zap, Clock, ImageOff } from 'lucide-react';
+import { ShoppingCart, TrendingUp, User, Zap, Clock, ImageOff, Star } from 'lucide-react';
 import clsx from 'clsx';
 import { DatasetMeta } from '../../lib/api';
 import { truncateAddress, formatUSDC, getTypeMeta } from '../../lib/utils';
@@ -112,6 +112,20 @@ export default function DatasetCard({ dataset, onBuy }: Props) {
               {t('common.units.queries')}
             </span>
           </div>
+          {dataset.ratings && dataset.ratings.count > 0 && (
+            <>
+              <div className="w-px h-3 bg-border" />
+              <div className="flex items-center gap-1.5">
+                <Star className="w-3.5 h-3.5 text-gold" fill="currentColor" />
+                <span className="text-xs font-body text-foreground-muted">
+                  <span className="text-foreground font-medium">
+                    {dataset.ratings.score.toFixed(1)}
+                  </span>{' '}
+                  ({dataset.ratings.count})
+                </span>
+              </div>
+            </>
+          )}
           <div className="w-px h-3 bg-border" />
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-muted" />

@@ -10,6 +10,8 @@ import {
   getDataset,
   getTransactions,
   getTransactionsCount,
+  getTransactionByHash,
+  updateDataset,
   type Dataset,
 } from '../common/storage';
 import { requireSellerJwt, requireSellerMutationAuth } from '../common/auth.middleware';
@@ -484,6 +486,84 @@ datasetsRouter.get('/:id/transactions', requireSellerJwt, async (req: Request, r
   const total = await getTransactionsCount(req.params.id);
 
   return res.json({ success: true, transactions, total, limit, offset });
+});
+
+/**
+ * @openapi
+ * /api/datasets/{id}/ratings:
+ *   post:
+ *     summary: Add a rating to a dataset
+ *     description: Submit a 1-5 star rating and optional comment for a dataset, verified by transaction hash.
+ */
+const createRatingSchema = z.object({
+  txHash: z.string().trim().min(1),
+  score: z.number().int().min(1).max(5),
+  comment: makeSanitizedTextField('comment', 500).optional()
+});
+
+datasetsRouter.post('/:id/ratings', validateBody(createRatingSchema), async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { txHash, score, comment } = req.body as z.infer<typeof createRatingSchema>;
+
+  const dataset = await getDataset(id);
+  if (!dataset) return res.status(404).json({ error: 'Dataset not found' });
+
+  const tx = await getTransactionByHash(txHash);
+  if (!tx || tx.datasetId !== id) {
+    return res.status(403).json({ error: 'Invalid transaction hash for this dataset' });
+  }
+  if (tx.deliveryStatus !== 'delivered') {
+    return res.status(403).json({ error: 'Data must be delivered before rating' });
+  }
+
+  const ratings = dataset.ratings || { score: 0, count: 0, reviews: [] };
+  if (ratings.reviews.some(r => r.txHash === txHash)) {
+    return res.status(409).json({ error: 'Duplicate rating for this transaction' });
+  }
+
+  ratings.reviews.push({
+    txHash,
+    score,
+    comment,
+    timestamp: new Date().toISOString()
+  });
+
+  const totalScore = ratings.reviews.reduce((sum, r) => sum + r.score, 0);
+  ratings.count = ratings.reviews.length;
+  ratings.score = totalScore / ratings.count;
+
+  await updateDataset(id, { ratings });
+
+  return res.status(201).json({ success: true, ratings });
+});
+
+/**
+ * @openapi
+ * /api/datasets/{id}/ratings:
+ *   get:
+ *     summary: Get dataset ratings
+ *     description: Retrieve paginated ratings and average score for a dataset.
+ */
+datasetsRouter.get('/:id/ratings', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const dataset = await getDataset(id);
+  if (!dataset) return res.status(404).json({ error: 'Dataset not found' });
+
+  const ratings = dataset.ratings || { score: 0, count: 0, reviews: [] };
+  
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const start = (page - 1) * limit;
+  const paginatedReviews = [...ratings.reviews].reverse().slice(start, start + limit);
+
+  return res.json({
+    success: true,
+    score: ratings.score,
+    count: ratings.count,
+    reviews: paginatedReviews,
+    page,
+    totalPages: Math.ceil(ratings.reviews.length / limit)
+  });
 });
 
 /**

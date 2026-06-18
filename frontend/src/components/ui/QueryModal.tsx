@@ -11,6 +11,7 @@ import {
   AlertCircle,
   ChevronRight,
   Zap,
+  Star,
 } from 'lucide-react';
 import { api, DatasetMeta, QueryResult } from '../../lib/api';
 import { useToastContext } from './ToastProvider';
@@ -48,6 +49,12 @@ export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true 
   const [useDemoMode, setUseDemoMode] = useState(false);
   const [verifyStage, setVerifyStage] = useState(0);
   const [walletStatus, setWalletStatus] = useState('');
+  
+  const [ratingScore, setRatingScore] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+
   const verifyTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -72,6 +79,10 @@ export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true 
       setVerifyStage(0);
       setWalletStatus('');
       setUseDemoMode(false);
+      setRatingScore(0);
+      setRatingComment('');
+      setRatingSubmitted(false);
+      setIsSubmittingRating(false);
     }
   }, [isOpen]);
 
@@ -150,6 +161,20 @@ export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true 
       }
     } catch (err) {
       setWalletStatus(err instanceof Error ? err.message : 'Wallet request failed.');
+    }
+  };
+
+  const handleRatingSubmit = async () => {
+    if (!ratingScore || !result) return;
+    setIsSubmittingRating(true);
+    try {
+      await api.submitRating(dataset.id, result.transaction.hash, ratingScore, ratingComment);
+      setRatingSubmitted(true);
+      toastSuccess('Rating submitted', 'Thank you for your feedback!');
+    } catch (err) {
+      toastError('Failed to submit rating', err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsSubmittingRating(false);
     }
   };
 
@@ -655,6 +680,61 @@ export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true 
                       {JSON.stringify(result.data, null, 2).length > 1200 ? '\n...' : ''}
                     </pre>
                   </div>
+                </div>
+              )}
+
+              {/* Ratings */}
+              {result.transaction.deliveryStatus === 'delivered' && !result.demo && (
+                <div className="mb-5 p-4 rounded-xl border border-border/40 bg-surface-2/30">
+                  <p className="text-xs font-body font-semibold text-foreground-muted mb-3">
+                    Rate this dataset
+                  </p>
+                  {ratingSubmitted ? (
+                    <div className="flex items-center gap-2 text-emerald-400 text-sm font-body bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20">
+                      <Check className="w-4 h-4" />
+                      Thank you for your rating!
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setRatingScore(star)}
+                            className={clsx(
+                              "p-1 transition-colors hover:text-gold",
+                              ratingScore >= star ? "text-gold" : "text-muted/40"
+                            )}
+                          >
+                            <Star className="w-6 h-6" fill={ratingScore >= star ? "currentColor" : "none"} />
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={ratingComment}
+                        onChange={(e) => setRatingComment(e.target.value)}
+                        placeholder="Leave an optional comment (max 500 chars)"
+                        maxLength={500}
+                        className="w-full bg-void/60 border border-border/60 rounded-xl p-3 text-sm font-body text-foreground placeholder:text-muted focus:outline-none focus:border-gold/40 transition-colors resize-none h-16"
+                      />
+                      <button
+                        onClick={handleRatingSubmit}
+                        disabled={!ratingScore || isSubmittingRating}
+                        className={clsx(
+                          "w-full py-2.5 rounded-lg text-sm font-body font-semibold transition-all",
+                          ratingScore && !isSubmittingRating
+                            ? "bg-gold/20 text-gold hover:bg-gold/30"
+                            : "bg-surface-2 text-muted cursor-not-allowed"
+                        )}
+                      >
+                        {isSubmittingRating ? (
+                          <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                        ) : (
+                          "Submit Rating"
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

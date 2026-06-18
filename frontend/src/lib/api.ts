@@ -158,6 +158,11 @@ export interface DatasetMeta {
   totalEarned: number;
   createdAt: string;
   thumbnail?: string;
+  ratings?: {
+    score: number;
+    count: number;
+    reviews: Array<{ txHash: string; score: number; comment?: string; timestamp: string }>;
+  };
 }
 
 export interface Transaction {
@@ -215,6 +220,16 @@ export const DatasetMetaSchema = z.object({
   totalEarned: z.number(),
   createdAt: z.string(),
   thumbnail: z.string().optional(),
+  ratings: z.object({
+    score: z.number(),
+    count: z.number(),
+    reviews: z.array(z.object({
+      txHash: z.string(),
+      score: z.number(),
+      comment: z.string().optional(),
+      timestamp: z.string()
+    }))
+  }).optional(),
 });
 export type DatasetMeta = z.infer<typeof DatasetMetaSchema>;
 
@@ -431,6 +446,17 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ buyerQuestion }),
     }).then(r => parseApiResponse(QueryResultSchema, r)),
+
+  submitRating: (id: string, txHash: string, score: number, comment?: string) =>
+    request<{ success: boolean; ratings: unknown }>(`${getApiBaseUrl()}/datasets/${id}/ratings`, {
+      method: 'POST',
+      body: JSON.stringify({ txHash, score, comment }),
+    }),
+
+  getRatings: (id: string, page = 1, limit = 10) =>
+    request<{ success: boolean; score: number; count: number; reviews: Array<{ txHash: string; score: number; comment?: string; timestamp: string }>; page: number; totalPages: number }>(
+      `${getApiBaseUrl()}/datasets/${id}/ratings?page=${page}&limit=${limit}`,
+    ),
 
   agentInfo: () => request<AgentInfo>(`${getApiBaseUrl()}/agent/info`),
 

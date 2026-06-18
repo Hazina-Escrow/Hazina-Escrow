@@ -54,6 +54,11 @@ export interface Dataset {
   queriesServed: number;
   totalEarned: number;
   createdAt: string;
+  ratings?: {
+    score: number;
+    count: number;
+    reviews: Array<{ txHash: string; score: number; comment?: string; timestamp: string }>;
+  };
 }
 
 export interface Transaction {
