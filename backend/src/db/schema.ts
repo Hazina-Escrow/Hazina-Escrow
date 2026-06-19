@@ -17,6 +17,7 @@ export const datasets = pgTable(
     description: text('description').notNull(),
     type: text('type').notNull(),
     pricePerQuery: numeric('price_per_query').notNull(),
+    paymentToken: text('payment_token').notNull().default('USDC'), // USDC | EURC | XLM
     sellerWallet: text('seller_wallet').notNull(),
     data: text('data').notNull().default('{}'),
     queriesServed: integer('queries_served').notNull().default(0),
@@ -35,6 +36,7 @@ export const transactions = pgTable('transactions', {
   datasetId: text('dataset_id').notNull(),
   txHash: text('tx_hash').notNull().unique(),
   amount: numeric('amount').notNull(),
+  paymentToken: text('payment_token').notNull().default('USDC'), // Track which token was used
   buyerQuery: text('buyer_query'),
   aiSummary: text('ai_summary'),
   timestamp: text('timestamp').notNull(),
@@ -63,6 +65,7 @@ export const datasetsSqlite = sqliteTable(
     description: sqliteText('description').notNull(),
     type: sqliteText('type').notNull(),
     pricePerQuery: sqliteText('price_per_query').notNull(),
+    paymentToken: sqliteText('payment_token').notNull().default('USDC'),
     sellerWallet: sqliteText('seller_wallet').notNull(),
     data: sqliteText('data').notNull().default('{}'),
     queriesServed: sqliteInteger('queries_served').notNull().default(0),
@@ -81,6 +84,7 @@ export const transactionsSqlite = sqliteTable('transactions', {
   datasetId: sqliteText('dataset_id').notNull(),
   txHash: sqliteText('tx_hash').notNull().unique(),
   amount: sqliteText('amount').notNull(),
+  paymentToken: sqliteText('payment_token').notNull().default('USDC'),
   buyerQuery: sqliteText('buyer_query'),
   aiSummary: sqliteText('ai_summary'),
   timestamp: sqliteText('timestamp').notNull(),
