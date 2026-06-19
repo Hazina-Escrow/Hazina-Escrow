@@ -268,6 +268,10 @@ export const sw: EnglishMessages = {
       sellerWalletError:
         'Weka ufunguo halali wa umma wa Stellar (unaanza na G, unatumia A-Z au 2-7, na una herufi 56 kamili)',
       sellerWalletHelp: '95% ya kila malipo ya swali hutumwa hapa kiotomatiki',
+      notificationEmail: 'Barua pepe ya arifa za maswali',
+      notificationEmailPlaceholder: 'muuzaji@example.com',
+      notificationEmailError: 'Weka anwani halali ya barua pepe',
+      notificationEmailHelp: 'Pokea barua pepe dataset hii inapoulizwa kwa mafanikio',
       datasetJson: 'Dataset (JSON)',
       uploadFileTitle: 'Pakia faili ya JSON',
       uploadFileSubtitle: 'JSON pekee, kiwango cha juu 10MB',

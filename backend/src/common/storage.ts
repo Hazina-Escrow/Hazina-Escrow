@@ -50,6 +50,7 @@ export interface Dataset {
   type: string;
   pricePerQuery: number;
   sellerWallet: string;
+  notificationEmail?: string;
   data: Record<string, unknown>;
   queriesServed: number;
   totalEarned: number;

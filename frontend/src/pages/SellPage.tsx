@@ -9,6 +9,7 @@ import {
   DollarSign,
   FileJson,
   User,
+  Mail,
   Zap,
   Info,
 } from 'lucide-react';
@@ -28,6 +29,7 @@ interface FormState {
   type: string;
   pricePerQuery: string;
   sellerWallet: string;
+  notificationEmail: string;
   dataText: string;
 }
 
@@ -37,6 +39,7 @@ const INITIAL: FormState = {
   type: 'whale-wallets',
   pricePerQuery: '0.05',
   sellerWallet: '',
+  notificationEmail: '',
   dataText: '',
 };
 
@@ -44,7 +47,7 @@ const STORAGE_KEY = 'hazina_sell_form_draft';
 const DRAFT_EXPIRY_HOURS = 24;
 
 interface StoredDraft {
-  data: Omit<FormState, 'sellerWallet'>; // Exclude sensitive wallet address
+  data: Omit<FormState, 'sellerWallet' | 'notificationEmail'>;
   timestamp: number;
 }
 
@@ -69,7 +72,8 @@ function loadDraft(): {
     const restoredForm: FormState = {
       ...INITIAL,
       ...stored.data,
-      sellerWallet: '', // Never restore sensitive wallet address
+      sellerWallet: '',
+      notificationEmail: '',
     };
 
     return { form: restoredForm, wasRestored: true };
@@ -199,6 +203,9 @@ export default function SellPage() {
   const isPriceInvalid = priceTouched && parseFloat(form.pricePerQuery) <= 0;
 
   const isWalletInvalid = walletTouched && !isValidStellarAddress(form.sellerWallet);
+  const isNotificationEmailInvalid =
+    form.notificationEmail.trim().length > 0 &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.notificationEmail.trim());
 
   const isValid =
     form.name.trim() &&
@@ -207,6 +214,7 @@ export default function SellPage() {
     parseFloat(form.pricePerQuery) > 0 &&
     !isPriceInvalid &&
     isValidStellarAddress(form.sellerWallet) &&
+    !isNotificationEmailInvalid &&
     form.dataText.trim() &&
     !jsonError;
 
@@ -222,6 +230,9 @@ export default function SellPage() {
         type: form.type,
         pricePerQuery: parseFloat(form.pricePerQuery),
         sellerWallet: form.sellerWallet.trim(),
+        ...(form.notificationEmail.trim()
+          ? { notificationEmail: form.notificationEmail.trim() }
+          : {}),
         data: JSON.parse(form.dataText),
       });
       clearDraft();
@@ -437,6 +448,36 @@ export default function SellPage() {
                   <p className="text-xs text-muted-2 font-body mt-1.5 flex items-start gap-1">
                     <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
                     {t('sell.form.sellerWalletHelp')}
+                  </p>
+                </div>
+
+                {/* Optional seller notifications */}
+                <div>
+                  <label className="text-sm font-body font-medium text-foreground-muted mb-2 flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-gold" />
+                    {t('sell.form.notificationEmail')}{' '}
+                    <span className="text-muted-2">{t('common.labels.optional')}</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={form.notificationEmail}
+                    onChange={set('notificationEmail')}
+                    placeholder={t('sell.form.notificationEmailPlaceholder')}
+                    className={clsx(
+                      'w-full bg-void/60 border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted focus:outline-none transition-colors',
+                      isNotificationEmailInvalid
+                        ? 'border-red-500/50 focus:border-red-500/70'
+                        : 'border-border/60 focus:border-gold/50',
+                    )}
+                  />
+                  {isNotificationEmailInvalid && (
+                    <p className="text-xs text-red-400 mt-1 font-body">
+                      {t('sell.form.notificationEmailError')}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-2 font-body mt-1.5 flex items-start gap-1">
+                    <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    {t('sell.form.notificationEmailHelp')}
                   </p>
                 </div>
 

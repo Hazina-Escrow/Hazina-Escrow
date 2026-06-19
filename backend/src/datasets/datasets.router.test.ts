@@ -281,6 +281,47 @@ describe('wallet address validation on POST /api/datasets', () => {
     expect(res.body.dataset.sellerWallet).toBe(VALID_WALLET);
   });
 
+  it('stores a valid notification email without exposing it in the response', async () => {
+    mockIsValidStellarAddress.mockReturnValue(true);
+
+    const res = await request(app)
+      .post('/api/v1/datasets')
+      .set('Authorization', 'Bearer test-api-key')
+      .send({ ...validDatasetBody, notificationEmail: 'seller@example.com' });
+
+    expect(res.status).toBe(201);
+    expect(addDataset).toHaveBeenCalledWith(
+      expect.objectContaining({ notificationEmail: 'seller@example.com' }),
+    );
+    expect(res.body.dataset.notificationEmail).toBeUndefined();
+  });
+
+  it('rejects an invalid notification email', async () => {
+    mockIsValidStellarAddress.mockReturnValue(true);
+
+    const res = await request(app)
+      .post('/api/v1/datasets')
+      .set('Authorization', 'Bearer test-api-key')
+      .send({ ...validDatasetBody, notificationEmail: 'not-an-email' });
+
+    expect(res.status).toBe(400);
+    expect(addDataset).not.toHaveBeenCalled();
+  });
+
+  it('treats a blank notification email as opting out', async () => {
+    mockIsValidStellarAddress.mockReturnValue(true);
+
+    const res = await request(app)
+      .post('/api/v1/datasets')
+      .set('Authorization', 'Bearer test-api-key')
+      .send({ ...validDatasetBody, notificationEmail: '   ' });
+
+    expect(res.status).toBe(201);
+    expect(addDataset).toHaveBeenCalledWith(
+      expect.objectContaining({ notificationEmail: undefined }),
+    );
+  });
+
   it('accepts a seller JWT when the wallet matches the request body', async () => {
     mockIsValidStellarAddress.mockReturnValue(true);
 

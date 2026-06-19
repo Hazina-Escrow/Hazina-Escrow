@@ -267,6 +267,10 @@ export const en = {
       sellerWalletError:
         'Enter a valid Stellar public key (starts with G, uses A-Z or 2-7, and is exactly 56 characters)',
       sellerWalletHelp: '95% of each query payment is sent here automatically',
+      notificationEmail: 'Query notification email',
+      notificationEmailPlaceholder: 'seller@example.com',
+      notificationEmailError: 'Enter a valid email address',
+      notificationEmailHelp: 'Receive an email whenever this dataset is successfully queried',
       datasetJson: 'Dataset (JSON)',
       uploadFileTitle: 'Upload JSON file',
       uploadFileSubtitle: 'JSON only, max 10MB',

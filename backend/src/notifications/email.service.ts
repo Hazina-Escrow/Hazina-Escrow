@@ -1,0 +1,53 @@
+import { Resend } from 'resend';
+
+export interface SellerNotificationEmail {
+  to: string;
+  datasetName: string;
+  amount: number;
+  sellerAmount: number;
+  txHash: string;
+  timestamp: string;
+}
+
+function formatUsdc(amount: number): string {
+  return amount.toFixed(4).replace(/\.?0+$/, '');
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+export async function sendSellerNotificationEmail(
+  notification: SellerNotificationEmail,
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  const resend = new Resend(apiKey);
+  const sellerAmount = formatUsdc(notification.sellerAmount);
+  const queryAmount = formatUsdc(notification.amount);
+  const timestamp = new Date(notification.timestamp).toISOString();
+  const subject = `Your dataset "${notification.datasetName}" was queried — ${queryAmount} USDC earned`;
+  const body = `A buyer queried your dataset at ${timestamp}. You earned ${sellerAmount} USDC (tx: ${notification.txHash}).`;
+
+  const { error } = await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL || 'Hazina <onboarding@resend.dev>',
+    to: notification.to,
+    subject,
+    text: body,
+    html:
+      `<p>A buyer queried your dataset at ${escapeHtml(timestamp)}.</p>` +
+      `<p>You earned <strong>${escapeHtml(sellerAmount)} USDC</strong> ` +
+      `(query price: ${escapeHtml(queryAmount)} USDC).</p>` +
+      `<p>Transaction: <code>${escapeHtml(notification.txHash)}</code></p>`,
+  });
+
+  if (error) {
+    throw new Error(`Resend email failed: ${error.message}`);
+  }
+}

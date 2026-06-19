@@ -385,6 +385,7 @@ export const api = {
     type: string;
     pricePerQuery: number;
     sellerWallet: string;
+    notificationEmail?: string;
     data: unknown;
   }) =>
     request<{ success: boolean; dataset: DatasetMeta }>(`${getApiBaseUrl()}/datasets`, {
