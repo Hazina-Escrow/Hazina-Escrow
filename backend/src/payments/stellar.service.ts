@@ -1,7 +1,7 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { getCircuitBreaker } from '../common/circuit-breaker';
 import { domainMetrics } from '../common/datadog';
-import { HORIZON_URL, USDC_ISSUER } from '../lib/stellar.config';
+import { HORIZON_URL, USDC_ISSUER, EURC_ISSUER, getTokenByCode } from '../lib/stellar.config';
 import { logger } from '../lib/logger';
 
 const server = new StellarSdk.Horizon.Server(HORIZON_URL);
@@ -18,6 +18,7 @@ interface VerifyParams {
   txHash: string;
   expectedAmount: number;
   destinationAddress: string;
+  tokenCode: string; // USDC | EURC | XLM
 }
 
 interface VerifyResult {
@@ -53,7 +54,7 @@ export class StellarTimeoutError extends Error {
   constructor(timeoutMs: number) {
     super(
       `Stellar Horizon did not respond within ${timeoutMs / 1000} seconds. ` +
-        'The payment network may be congested — please try again shortly.',
+      'The payment network may be congested — please try again shortly.',
     );
     this.name = 'StellarTimeoutError';
   }
@@ -91,8 +92,18 @@ async function withHorizonRetry<T>(fn: () => Promise<T>): Promise<T> {
   throw new Error('unreachable');
 }
 
+function getTokenIssuer(tokenCode: string): string | null {
+  const token = getTokenByCode(tokenCode);
+  return token?.issuer || null;
+}
+
 export async function verifyStellarPayment(params: VerifyParams): Promise<VerifyResult> {
-  const { txHash, expectedAmount, destinationAddress } = params;
+  const { txHash, expectedAmount, destinationAddress, tokenCode } = params;
+
+  const expectedIssuer = getTokenIssuer(tokenCode);
+  if (!getTokenByCode(tokenCode)) {
+    return { valid: false, reason: `Unsupported token: ${tokenCode}` };
+  }
 
   try {
     const [tx, ops] = await withStellarTimeout(
@@ -124,28 +135,34 @@ export async function verifyStellarPayment(params: VerifyParams): Promise<Verify
       return { valid: false, reason: 'No payment to escrow address found in transaction' };
     }
 
-    // Find USDC payment — must match both asset code and issuer to prevent XLM/fake-USDC substitution
-    const usdcOps = paymentOps.filter(op => {
+    // For XLM (native), check asset_type === 'native'
+    // For USDC/EURC (tokens), match both asset_code and issuer
+    const matchingOps = paymentOps.filter(op => {
       const payOp = op as StellarSdk.Horizon.ServerApi.PaymentOperationRecord;
-      return payOp.asset_code === 'USDC' && payOp.asset_issuer === USDC_ISSUER;
+
+      if (tokenCode === 'XLM') {
+        return payOp.asset_type === 'native';
+      }
+
+      return payOp.asset_code === tokenCode && payOp.asset_issuer === expectedIssuer;
     });
 
-    if (usdcOps.length === 0) {
+    if (matchingOps.length === 0) {
       domainMetrics.stellarPaymentVerified({
         datasetType: 'unknown',
         mode: 'real',
         status: 'failed',
-        reason: 'no_usdc_found',
+        reason: `no_${tokenCode.toLowerCase()}_found`,
       });
       return {
         valid: false,
-        reason: 'No USDC payment found — ensure you sent USDC on Stellar testnet',
+        reason: `No ${tokenCode} payment found — ensure you sent ${tokenCode} on Stellar testnet`,
       };
     }
 
-    const payOp = usdcOps[0] as StellarSdk.Horizon.ServerApi.PaymentOperationRecord;
+    const payOp = matchingOps[0] as StellarSdk.Horizon.ServerApi.PaymentOperationRecord;
     const actualAmount = parseFloat(payOp.amount);
-    const tolerance = 0.001; // 0.001 USDC tolerance
+    const tolerance = 0.001; // 0.001 token tolerance
 
     if (Math.abs(actualAmount - expectedAmount) > tolerance) {
       domainMetrics.stellarPaymentVerified({
@@ -156,7 +173,7 @@ export async function verifyStellarPayment(params: VerifyParams): Promise<Verify
       });
       return {
         valid: false,
-        reason: `Amount mismatch: expected ${expectedAmount} USDC, received ${actualAmount} USDC`,
+        reason: `Amount mismatch: expected ${expectedAmount} ${tokenCode}, received ${actualAmount} ${tokenCode}`,
         actualAmount,
       };
     }
