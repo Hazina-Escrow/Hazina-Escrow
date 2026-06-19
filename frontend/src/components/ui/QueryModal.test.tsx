@@ -14,6 +14,15 @@ vi.mock('../../lib/api', () => ({
   },
 }));
 
+vi.mock('../../lib/stellarWallets', async () => {
+  const actual = await vi.importActual<typeof import('../../lib/stellarWallets')>('../../lib/stellarWallets');
+  return {
+    ...actual,
+    detectWallets: vi.fn(() => Promise.resolve({ freighter: false, albedo: false })),
+    launchStellarWalletProvider: vi.fn(() => Promise.resolve(null)),
+  };
+});
+
 const dataset = {
   id: 'ds-query-1',
   name: 'Whale Wallet Dataset',

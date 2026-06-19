@@ -16,8 +16,7 @@ import {
 import { api, DatasetMeta, QueryResult } from '../../lib/api';
 import { useToastContext } from './ToastProvider';
 import { formatUSDC, getTypeMeta, truncateAddress } from '../../lib/utils';
-import { launchStellarWalletProvider } from '../../lib/stellarWallets';
-import type { StellarWalletProvider } from '../../lib/stellarWallets';
+import WalletConnectButton from './WalletConnectButton';
 import clsx from 'clsx';
 import { getCatalog, useI18n } from '../../i18n';
 import { isDemoModeEnabled } from '../../lib/env';
@@ -145,23 +144,8 @@ export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true 
     }
   };
 
-  const handleWalletPayment = async (provider: StellarWalletProvider) => {
-    if (!paymentInfo) return;
-
-    setWalletStatus('');
-    try {
-      const hash = await launchStellarWalletProvider(provider, paymentInfo);
-      if (hash) {
-        setTxHash(hash);
-        setWalletStatus('Transaction hash received. Verify to unlock the dataset.');
-      } else {
-        setWalletStatus(
-          'Complete the payment in your wallet, then paste the transaction hash below.',
-        );
-      }
-    } catch (err) {
-      setWalletStatus(err instanceof Error ? err.message : 'Wallet request failed.');
-    }
+  const handleWalletTxHash = (hash: string) => {
+    setTxHash(hash);
   };
 
   const handleRatingSubmit = async () => {
@@ -404,25 +388,11 @@ export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true 
                   </div>
 
                   <div className="glass-card p-4">
-                    <p className="text-xs text-muted-2 font-body mb-3">Pay with wallet</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleWalletPayment('freighter')}
-                        className="btn-ghost py-2.5 text-xs flex items-center justify-center gap-2"
-                      >
-                        <Zap className="w-3.5 h-3.5" />
-                        Freighter
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWalletPayment('albedo')}
-                        className="btn-ghost py-2.5 text-xs flex items-center justify-center gap-2"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        Albedo
-                      </button>
-                    </div>
+                    <WalletConnectButton
+                      payment={paymentInfo}
+                      onTxHash={handleWalletTxHash}
+                      onStatusChange={setWalletStatus}
+                    />
                     {walletStatus && (
                       <p
                         className="text-xs text-foreground-muted font-body mt-3"

@@ -1,3 +1,9 @@
+import {
+  isConnected as freighterIsConnected,
+  requestAccess as freighterRequestAccess,
+  signTransaction as freighterSignTransaction,
+  isAllowed as freighterIsAllowed,
+} from '@stellar/freighter-api';
 import { getEnv } from './env';
 
 export type StellarWalletProvider = 'freighter' | 'albedo';
@@ -6,6 +12,11 @@ export interface StellarPaymentRequest {
   paymentAddress: string;
   amount: number;
   memo: string;
+}
+
+export interface WalletDetectionResult {
+  freighter: boolean;
+  albedo: boolean;
 }
 
 interface AlbedoPayResult {
@@ -74,11 +85,52 @@ export function buildAlbedoPaymentUrl(payment: StellarPaymentRequest) {
   });
 }
 
+export async function detectWallets(): Promise<WalletDetectionResult> {
+  let freighter = false;
+  try {
+    freighter = await freighterIsConnected();
+  } catch {
+    freighter = false;
+  }
+
+  const albedo = typeof window !== 'undefined' && !!window.albedo?.pay;
+
+  return { freighter, albedo };
+}
+
+export async function connectFreighter(): Promise<string> {
+  const connected = await freighterIsConnected();
+  if (!connected) {
+    throw new Error('Freighter extension is not installed. Please install it from freighter.app');
+  }
+
+  const allowed = await freighterIsAllowed();
+  if (!allowed) {
+    const publicKey = await freighterRequestAccess();
+    return publicKey;
+  }
+
+  const publicKey = await freighterRequestAccess();
+  return publicKey;
+}
+
+export async function signWithFreighter(xdr: string): Promise<string> {
+  const signedXdr = await freighterSignTransaction(xdr, {
+    networkPassphrase: networkPassphrase(),
+  });
+  return signedXdr;
+}
+
 export async function launchStellarWalletProvider(
   provider: StellarWalletProvider,
   payment: StellarPaymentRequest,
 ) {
   if (provider === 'freighter') {
+    try {
+      await connectFreighter();
+    } catch {
+      // Freighter not available — fall back to SEP-7 URI
+    }
     window.location.href = buildFreighterPaymentUri(payment);
     return null;
   }
