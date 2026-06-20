@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 import cors from 'cors';
 import path from 'path';
 import http from 'http';
-import _swaggerUi from 'swagger-ui-express';
+import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 import { datasetsRouter } from './datasets/datasets.router';
 import {
@@ -168,7 +168,8 @@ const swaggerOptions = {
   apis: ['./src/**/*.ts'], // Path to the API docs
 };
 
-const _swaggerDocs = swaggerJsdoc(swaggerOptions);
+const swaggerDocs = swaggerJsdoc(swaggerOptions);
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 // Health check with service monitoring
 const HEALTH_TIMEOUT_MS = 3000;
 

@@ -336,11 +336,53 @@ paymentsRouter.post(
   },
 );
 
+/**
+ * @openapi
+ * /api/admin/payouts/stuck:
+ *   get:
+ *     summary: List payouts requiring manual review
+ *     description: Returns seller payouts that have exhausted automatic retries. Requires admin key.
+ *     responses:
+ *       200:
+ *         description: List of stuck payouts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 payouts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         description: Missing or invalid admin key
+ */
 // GET /api/admin/payouts/stuck — list payouts requiring manual review
 paymentsRouter.get('/admin/payouts/stuck', requireAdminKey, (_req: Request, res: Response) => {
   return res.json({ payouts: getManualReviewPayouts() });
 });
 
+/**
+ * @openapi
+ * /api/admin/payouts/retry:
+ *   post:
+ *     summary: Trigger payout retry sweep
+ *     description: Immediately runs due payout retries and reschedules the sweep. Requires admin key.
+ *     responses:
+ *       200:
+ *         description: Retry sweep completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 processed:
+ *                   type: integer
+ *       401:
+ *         description: Missing or invalid admin key
+ */
 // POST /api/admin/payouts/retry — trigger retry sweep now
 paymentsRouter.post(
   '/admin/payouts/retry',
@@ -449,6 +491,31 @@ paymentsRouter.post(
   },
 );
 
+/**
+ * @openapi
+ * /api/admin/unpaid-sellers:
+ *   get:
+ *     summary: List unpaid seller transactions
+ *     description: Returns completed transactions where the seller has not yet been paid. Requires admin key.
+ *     responses:
+ *       200:
+ *         description: List of unpaid transactions with seller wallet info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 unpaidTransactions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 total:
+ *                   type: integer
+ *       401:
+ *         description: Missing or invalid admin key
+ */
 paymentsRouter.get(
   '/admin/unpaid-sellers',
   requireAdminKey,
