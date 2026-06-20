@@ -32,12 +32,21 @@ export interface Dataset {
   type: string;
   pricePerQuery: number;
   sellerWallet: string;
+  notificationEmail?: string;
   data: Record<string, unknown>;
   queriesServed: number;
   totalEarned: number;
   createdAt: string;
+
   ratings?: DatasetRating;
   priceHistory?: DatasetPricePoint[];
+
+  ratings?: {
+    score: number;
+    count: number;
+    reviews: Array<{ txHash: string; score: number; comment?: string; timestamp: string }>;
+  };
+
 }
 
 export interface Transaction {
@@ -46,6 +55,7 @@ export interface Transaction {
   txHash: string;
   buyerWallet?: string;
   memo?: string;
+
   amount: number;
   status?:
     | 'pending'
@@ -232,7 +242,15 @@ export async function updateDataset(
   });
 }
 export async function addDataset(dataset: Dataset): Promise<void> {
+
   return updateStore(store => {
+
+
+  return enqueue(async store => {
+
+  return updateStore(async store => {
+
+
     store.datasets.push(dataset);
   });
 }
@@ -248,6 +266,7 @@ export async function addTransaction(tx: Transaction): Promise<void> {
     if (tx.txHash) pendingTxHashes.delete(tx.txHash);
   });
 }
+
 export async function getTransactionByHash(txHash: string): Promise<Transaction | undefined> {
   return (await readStore()).transactions.find(transaction => transaction.txHash === txHash);
 }

@@ -9,6 +9,7 @@ const SENSITIVE_ENV_KEYS: ReadonlySet<string> = new Set([
   'ADMIN_API_KEY',
   'SELLER_JWT_SECRET',
   'ANTHROPIC_API_KEY',
+  'RESEND_API_KEY',
   'SENTRY_DSN',
   'DATADOG_API_KEY',
   'DATABASE_URL',

@@ -239,6 +239,27 @@ export const domainMetrics = {
   },
 
   /**
+   * Track when agent fee is insufficient to cover all dataset costs
+   * @param tags.mode - 'real' or 'demo'
+   * @param tags.totalCost - Combined cost of all selected datasets
+   * @param tags.agentFee - Fee collected from the human
+   * @param tags.skipped - Number of datasets skipped to fit within budget
+   */
+  agentBudgetInsufficient(tags: {
+    mode: 'real' | 'demo';
+    totalCost: number;
+    agentFee: number;
+    skipped: number;
+  }) {
+    incrementMetric('agent.budget.insufficient', 1, {
+      mode: tags.mode,
+      total_cost: tags.totalCost,
+      agent_fee: tags.agentFee,
+      skipped: tags.skipped,
+    });
+  },
+
+  /**
    * Track agent human payment verification
    * @param tags.mode - 'real' or 'demo'
    * @param tags.status - 'verified' or 'failed'

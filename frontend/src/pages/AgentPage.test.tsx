@@ -133,7 +133,7 @@ describe('AgentPage – submission interactions', () => {
       .getAllByRole('button')
       .filter(btn => !btn.getAttribute('aria-label') && btn.className.includes('rounded-lg'));
     expect(chips.length).toBeGreaterThan(0);
-    await userEvent.click(chips[0]);
+    await userEvent.click(chips[0]!);
     const input = screen.getByRole('textbox') as HTMLInputElement;
     expect(input.value.length).toBeGreaterThan(0);
   });

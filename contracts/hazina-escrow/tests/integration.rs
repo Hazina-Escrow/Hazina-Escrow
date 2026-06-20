@@ -105,7 +105,7 @@ fn get_usdc_balance(address: &str) -> f64 {
 }
 
 #[test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 fn integration_lock_and_release() {
     setup_env();
     let buyer_secret = get_env("TEST_BUYER_SECRET");
@@ -177,7 +177,7 @@ fn integration_lock_and_release() {
 }
 
 #[test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 fn integration_refund() {
     setup_env();
     let buyer_secret = get_env("TEST_BUYER_SECRET");
@@ -231,7 +231,7 @@ fn integration_refund() {
 }
 
 #[test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 fn integration_double_release_fails() {
     setup_env();
     let buyer_secret = get_env("TEST_BUYER_SECRET");

@@ -4,6 +4,7 @@ import {
   SOROBAN_RPC_URL,
   USDC_ISSUER,
   getNetworkPassphrase,
+  getTokenByCode,
 } from '../lib/stellar.config';
 import { logger } from '../lib/logger';
 
@@ -18,6 +19,7 @@ export interface SendPaymentParams {
   destinationAddress: string;
   amount: string; // string to match Stellar SDK precision
   memo?: string;
+  tokenCode?: string; // defaults to USDC
 }
 
 export interface SendPaymentResult {
@@ -25,37 +27,62 @@ export interface SendPaymentResult {
   from: string;
   to: string;
   amount: string;
+  tokenCode: string;
 }
 
 /**
- * Sends USDC from the agent's own wallet to a data seller.
+ * Sends a token payment from the agent's own wallet to a data seller.
+ * Supports USDC, EURC, or XLM (native).
  * Requires AGENT_WALLET_SECRET in env.
  */
-export async function sendUsdcPayment(params: SendPaymentParams): Promise<SendPaymentResult> {
+export async function sendTokenPayment(params: SendPaymentParams): Promise<SendPaymentResult> {
   const secret = process.env.AGENT_WALLET_SECRET;
   if (!secret) {
     throw new Error('AGENT_WALLET_SECRET not configured — agent cannot send payments');
   }
 
+  const tokenCode = params.tokenCode || 'USDC';
+  const token = getTokenByCode(tokenCode);
+  if (!token) {
+    throw new Error(`Unsupported token: ${tokenCode}`);
+  }
+
   const keypair = StellarSdk.Keypair.fromSecret(secret);
   const account = await server.loadAccount(keypair.publicKey());
 
-  const usdcBal = account.balances.find(b => {
-    if (b.asset_type === 'native') return false;
-    const bal = b as { asset_code: string; asset_issuer: string };
-    return bal.asset_code === 'USDC' && bal.asset_issuer === USDC_ISSUER;
-  }) as { balance: string } | undefined;
+  // For XLM (native), just check native balance; for tokens, check trustline
+  if (tokenCode === 'XLM') {
+    const nativeBal = account.balances.find(b => b.asset_type === 'native');
+    if (!nativeBal || parseFloat(nativeBal.balance) < parseFloat(params.amount)) {
+      throw new Error(
+        `Insufficient XLM balance: need ${params.amount} XLM, have ${nativeBal?.balance || '0'} XLM`,
+      );
+    }
+  } else {
+    // For USDC/EURC
+    const tokenBal = account.balances.find(b => {
+      if (b.asset_type === 'native') return false;
+      const bal = b as { asset_code: string; asset_issuer: string };
+      return bal.asset_code === tokenCode && bal.asset_issuer === token.issuer;
+    }) as { balance: string } | undefined;
 
-  if (!usdcBal) {
-    throw new Error('Agent wallet has no USDC trustline — cannot send payment');
-  }
-  if (parseFloat(usdcBal.balance) < parseFloat(params.amount)) {
-    throw new Error(
-      `Insufficient USDC balance: need ${params.amount} USDC, have ${usdcBal.balance} USDC`,
-    );
+    if (!tokenBal) {
+      throw new Error(`Agent wallet has no ${tokenCode} trustline — cannot send payment`);
+    }
+    if (parseFloat(tokenBal.balance) < parseFloat(params.amount)) {
+      throw new Error(
+        `Insufficient ${tokenCode} balance: need ${params.amount} ${tokenCode}, have ${tokenBal.balance} ${tokenCode}`,
+      );
+    }
   }
 
-  const usdc = new StellarSdk.Asset('USDC', USDC_ISSUER);
+  // Build asset object
+  let asset: StellarSdk.Asset;
+  if (tokenCode === 'XLM') {
+    asset = StellarSdk.Asset.native();
+  } else {
+    asset = new StellarSdk.Asset(tokenCode, token.issuer!);
+  }
 
   const txBuilder = new StellarSdk.TransactionBuilder(account, {
     fee: StellarSdk.BASE_FEE,
@@ -63,7 +90,7 @@ export async function sendUsdcPayment(params: SendPaymentParams): Promise<SendPa
   }).addOperation(
     StellarSdk.Operation.payment({
       destination: params.destinationAddress,
-      asset: usdc,
+      asset,
       amount: params.amount,
     }),
   );
@@ -81,7 +108,15 @@ export async function sendUsdcPayment(params: SendPaymentParams): Promise<SendPa
     from: keypair.publicKey(),
     to: params.destinationAddress,
     amount: params.amount,
+    tokenCode,
   };
+}
+
+/**
+ * Deprecated: Use sendTokenPayment instead
+ */
+export async function sendUsdcPayment(params: SendPaymentParams): Promise<SendPaymentResult> {
+  return sendTokenPayment({ ...params, tokenCode: 'USDC' });
 }
 
 /**
@@ -161,7 +196,7 @@ export function validateAgentWallet(): void {
   if (!rawSecret) {
     throw new Error(
       '[AgentWallet] AGENT_WALLET_SECRET is not set. ' +
-        'The agent wallet cannot sign transactions.',
+      'The agent wallet cannot sign transactions.',
     );
   }
 
@@ -173,7 +208,7 @@ export function validateAgentWallet(): void {
     // Do NOT include the caught error in this throw — it may echo key material.
     throw new Error(
       '[AgentWallet] AGENT_WALLET_SECRET is set but is not a valid Stellar secret key. ' +
-        'Check the value in your environment configuration.',
+      'Check the value in your environment configuration.',
     );
   }
 

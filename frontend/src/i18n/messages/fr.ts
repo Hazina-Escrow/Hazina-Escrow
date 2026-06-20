@@ -268,6 +268,10 @@ export const fr: EnglishMessages = {
       sellerWalletError:
         'Saisissez une cle publique Stellar valide (commence par G, utilise A-Z ou 2-7 et comporte exactement 56 caracteres)',
       sellerWalletHelp: '95 % de chaque paiement de requête est envoyé ici automatiquement',
+      notificationEmail: 'E-mail de notification des requêtes',
+      notificationEmailPlaceholder: 'vendeur@exemple.com',
+      notificationEmailError: 'Saisissez une adresse e-mail valide',
+      notificationEmailHelp: 'Recevez un e-mail après chaque requête réussie de ce dataset',
       datasetJson: 'Dataset (JSON)',
       uploadFileTitle: 'Téléverser un fichier JSON',
       uploadFileSubtitle: 'JSON uniquement, max 10 Mo',

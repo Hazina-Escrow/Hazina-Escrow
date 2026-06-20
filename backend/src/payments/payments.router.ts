@@ -174,12 +174,15 @@ paymentsRouter.post('/query/:id', async (req: Request, res: Response) => {
   const memo = `haz-${req.params.id.slice(0, 8)}-${timestamp}`;
 
   const transactionId = `tx-${uuidv4()}`;
+  const tokenCode = dataset.paymentToken || 'USDC';
+
   await addTransaction({
     id: transactionId,
     datasetId: dataset.id,
     txHash: '', // Not yet known
     memo,
     amount: dataset.pricePerQuery,
+    paymentToken: tokenCode,
     status: 'pending',
     deliveryStatus: 'pending',
     timestamp: new Date().toISOString(),
@@ -197,13 +200,13 @@ paymentsRouter.post('/query/:id', async (req: Request, res: Response) => {
     payment: {
       paymentAddress: process.env.ESCROW_WALLET || dataset.sellerWallet,
       amount: dataset.pricePerQuery,
-      currency: 'USDC',
+      currency: tokenCode,
       network: 'Stellar Testnet',
       memo,
       expiresIn: 300, // 5 minutes
       instructions: [
         `1. Open your Stellar wallet (Lobstr, StellarX, or testnet faucet)`,
-        `2. Send exactly ${dataset.pricePerQuery} USDC to the address above`,
+        `2. Send exactly ${dataset.pricePerQuery} ${tokenCode} to the address above`,
         `3. Include memo: ${memo}`,
         `4. Submit the transaction hash below to receive your data`,
       ],
@@ -333,11 +336,53 @@ paymentsRouter.post(
   },
 );
 
+/**
+ * @openapi
+ * /api/admin/payouts/stuck:
+ *   get:
+ *     summary: List payouts requiring manual review
+ *     description: Returns seller payouts that have exhausted automatic retries. Requires admin key.
+ *     responses:
+ *       200:
+ *         description: List of stuck payouts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 payouts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         description: Missing or invalid admin key
+ */
 // GET /api/admin/payouts/stuck — list payouts requiring manual review
 paymentsRouter.get('/admin/payouts/stuck', requireAdminKey, (_req: Request, res: Response) => {
   return res.json({ payouts: getManualReviewPayouts() });
 });
 
+/**
+ * @openapi
+ * /api/admin/payouts/retry:
+ *   post:
+ *     summary: Trigger payout retry sweep
+ *     description: Immediately runs due payout retries and reschedules the sweep. Requires admin key.
+ *     responses:
+ *       200:
+ *         description: Retry sweep completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 processed:
+ *                   type: integer
+ *       401:
+ *         description: Missing or invalid admin key
+ */
 // POST /api/admin/payouts/retry — trigger retry sweep now
 paymentsRouter.post(
   '/admin/payouts/retry',
@@ -446,6 +491,31 @@ paymentsRouter.post(
   },
 );
 
+/**
+ * @openapi
+ * /api/admin/unpaid-sellers:
+ *   get:
+ *     summary: List unpaid seller transactions
+ *     description: Returns completed transactions where the seller has not yet been paid. Requires admin key.
+ *     responses:
+ *       200:
+ *         description: List of unpaid transactions with seller wallet info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 unpaidTransactions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 total:
+ *                   type: integer
+ *       401:
+ *         description: Missing or invalid admin key
+ */
 paymentsRouter.get(
   '/admin/unpaid-sellers',
   requireAdminKey,

@@ -157,8 +157,16 @@ export interface DatasetMeta {
   totalEarned: number;
   createdAt: string;
   thumbnail?: string;
+
   ratings?: { score: number; count: number };
   priceHistory?: { price: number; changedAt: string }[];
+
+  ratings?: {
+    score: number;
+    count: number;
+    reviews: Array<{ txHash: string; score: number; comment?: string; timestamp: string }>;
+  };
+
 }
 
 export interface Transaction {
@@ -216,6 +224,7 @@ export const DatasetMetaSchema = z.object({
   totalEarned: z.number(),
   createdAt: z.string(),
   thumbnail: z.string().optional(),
+
   ratings: z.object({ score: z.number(), count: z.number() }).optional(),
   priceHistory: z.array(z.object({ price: z.number(), changedAt: z.string() })).optional(),
 });
@@ -228,6 +237,18 @@ export const DatasetDetailSchema = DatasetMetaSchema.extend({
     lastUpdated: z.string(),
   }),
   preview: z.unknown(),
+
+  ratings: z.object({
+    score: z.number(),
+    count: z.number(),
+    reviews: z.array(z.object({
+      txHash: z.string(),
+      score: z.number(),
+      comment: z.string().optional(),
+      timestamp: z.string()
+    }))
+  }).optional(),
+
 });
 export type DatasetDetail = z.infer<typeof DatasetDetailSchema>;
 export type DatasetMeta = z.infer<typeof DatasetMetaSchema>;
@@ -451,6 +472,17 @@ export const api = {
       body: JSON.stringify({ buyerQuestion }),
     }).then(r => parseApiResponse(QueryResultSchema, r)),
 
+  submitRating: (id: string, txHash: string, score: number, comment?: string) =>
+    request<{ success: boolean; ratings: unknown }>(`${getApiBaseUrl()}/datasets/${id}/ratings`, {
+      method: 'POST',
+      body: JSON.stringify({ txHash, score, comment }),
+    }),
+
+  getRatings: (id: string, page = 1, limit = 10) =>
+    request<{ success: boolean; score: number; count: number; reviews: Array<{ txHash: string; score: number; comment?: string; timestamp: string }>; page: number; totalPages: number }>(
+      `${getApiBaseUrl()}/datasets/${id}/ratings?page=${page}&limit=${limit}`,
+    ),
+
   agentInfo: () => request<AgentInfo>(`${getApiBaseUrl()}/agent/info`),
 
   agentDemo: (query: string) =>
@@ -473,6 +505,7 @@ export const api = {
     type: string;
     pricePerQuery: number;
     sellerWallet: string;
+    notificationEmail?: string;
     data: unknown;
   }) =>
     request<{ success: boolean; dataset: DatasetMeta }>(`${getApiBaseUrl()}/datasets`, {

@@ -51,10 +51,11 @@ vi.mock('../common/datadog', () => ({
     agentJobCompleted: vi.fn(),
     agentDatasetPurchase: vi.fn(),
     agentHumanPaymentVerified: vi.fn(),
+    agentBudgetInsufficient: vi.fn(),
   },
 }));
 
-import { runResearchAgentDemo, SELLER_TYPES } from './agent.service';
+import { runResearchAgentDemo, SELLER_TYPES, AGENT_FEE_USDC } from './agent.service';
 import { getAllDatasets, getDataset } from '../common/storage';
 import { domainMetrics } from '../common/datadog';
 
@@ -98,5 +99,70 @@ describe('runResearchAgentDemo metrics', () => {
       datasetsQueried: SELLER_TYPES.length,
       totalSpent: expect.any(Number),
     });
+  });
+});
+
+describe('budget guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('skips expensive datasets so agentProfit is never negative', async () => {
+    // All 4 sellers priced at 0.30 USDC → total 1.20 > AGENT_FEE_USDC (1.00)
+    const expensiveDatasets: Dataset[] = SELLER_TYPES.map(seller => ({
+      id: `ds-${seller.type}`,
+      name: `${seller.description} Dataset`,
+      description: seller.description,
+      type: seller.type,
+      pricePerQuery: 0.3,
+      sellerWallet: SELLER_WALLET,
+      data: { rows: [] },
+      queriesServed: 0,
+      totalEarned: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }));
+
+    vi.mocked(getAllDatasets).mockResolvedValue(expensiveDatasets);
+    vi.mocked(getDataset).mockImplementation(async (id: string) =>
+      expensiveDatasets.find(d => d.id === id),
+    );
+
+    const job = await runResearchAgentDemo('overspend scenario');
+
+    // Only datasets that fit within AGENT_FEE_USDC should be purchased
+    expect(job.totalSpent).toBeLessThanOrEqual(AGENT_FEE_USDC);
+    expect(job.agentProfit).toBeGreaterThanOrEqual(0);
+    // Some datasets must have been skipped
+    expect(job.purchases.length).toBeLessThan(SELLER_TYPES.length);
+    // Budget metric must have been emitted
+    expect(domainMetrics.agentBudgetInsufficient).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'demo', skipped: expect.any(Number) }),
+    );
+  });
+
+  it('does not emit agentBudgetInsufficient when all datasets fit within fee', async () => {
+    // Very cheap datasets — all fit easily
+    const cheapDatasets: Dataset[] = SELLER_TYPES.map(seller => ({
+      id: `ds-${seller.type}`,
+      name: `${seller.description} Dataset`,
+      description: seller.description,
+      type: seller.type,
+      pricePerQuery: 0.01,
+      sellerWallet: SELLER_WALLET,
+      data: { rows: [] },
+      queriesServed: 0,
+      totalEarned: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }));
+
+    vi.mocked(getAllDatasets).mockResolvedValue(cheapDatasets);
+    vi.mocked(getDataset).mockImplementation(async (id: string) =>
+      cheapDatasets.find(d => d.id === id),
+    );
+
+    const job = await runResearchAgentDemo('cheap scenario');
+
+    expect(job.agentProfit).toBeGreaterThanOrEqual(0);
+    expect(domainMetrics.agentBudgetInsufficient).not.toHaveBeenCalled();
   });
 });

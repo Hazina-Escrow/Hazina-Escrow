@@ -10,6 +10,9 @@ import {
   getDataset,
   getTransactions,
   getTransactionsCount,
+
+  getTransactionByHash,
+n
   updateDataset,
   type Dataset,
 } from '../common/storage';
@@ -83,6 +86,10 @@ const createDatasetSchema = z.object({
     .string()
     .trim()
     .refine(StrKey.isValidEd25519PublicKey, { message: 'Invalid Stellar address' }),
+  notificationEmail: z.preprocess(
+    value => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().trim().email().max(320).optional(),
+  ),
   data: dataField,
 });
 
@@ -105,6 +112,9 @@ const createDatasetSchema = z.object({
  *           type: number
  *         sellerWallet:
  *           type: string
+ *         notificationEmail:
+ *           type: string
+ *           format: email
  *         queriesServed:
  *           type: integer
  *         totalEarned:
@@ -152,6 +162,7 @@ function getSampleSize(data: Record<string, unknown>): number {
 }
 
 function withoutRawData(dataset: Dataset) {
+
   const { data: _data, ...meta } = dataset;
   return {
     ...meta,
@@ -173,6 +184,10 @@ function toDatasetDetail(dataset: Dataset) {
     },
     preview: getPreviewRow(dataset.data),
   };
+
+  const { data: _data, notificationEmail: _notificationEmail, ...meta } = dataset;
+  return meta;
+
 }
 
 async function getSellerDashboardData(sellerWallet: string) {
@@ -561,6 +576,84 @@ datasetsRouter.get('/:id/transactions', requireSellerJwt, async (req: Request, r
 
 /**
  * @openapi
+ * /api/datasets/{id}/ratings:
+ *   post:
+ *     summary: Add a rating to a dataset
+ *     description: Submit a 1-5 star rating and optional comment for a dataset, verified by transaction hash.
+ */
+const createRatingSchema = z.object({
+  txHash: z.string().trim().min(1),
+  score: z.number().int().min(1).max(5),
+  comment: makeSanitizedTextField('comment', 500).optional()
+});
+
+datasetsRouter.post('/:id/ratings', validateBody(createRatingSchema), async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { txHash, score, comment } = req.body as z.infer<typeof createRatingSchema>;
+
+  const dataset = await getDataset(id);
+  if (!dataset) return res.status(404).json({ error: 'Dataset not found' });
+
+  const tx = await getTransactionByHash(txHash);
+  if (!tx || tx.datasetId !== id) {
+    return res.status(403).json({ error: 'Invalid transaction hash for this dataset' });
+  }
+  if (tx.deliveryStatus !== 'delivered') {
+    return res.status(403).json({ error: 'Data must be delivered before rating' });
+  }
+
+  const ratings = dataset.ratings || { score: 0, count: 0, reviews: [] };
+  if (ratings.reviews.some(r => r.txHash === txHash)) {
+    return res.status(409).json({ error: 'Duplicate rating for this transaction' });
+  }
+
+  ratings.reviews.push({
+    txHash,
+    score,
+    comment,
+    timestamp: new Date().toISOString()
+  });
+
+  const totalScore = ratings.reviews.reduce((sum, r) => sum + r.score, 0);
+  ratings.count = ratings.reviews.length;
+  ratings.score = totalScore / ratings.count;
+
+  await updateDataset(id, { ratings });
+
+  return res.status(201).json({ success: true, ratings });
+});
+
+/**
+ * @openapi
+ * /api/datasets/{id}/ratings:
+ *   get:
+ *     summary: Get dataset ratings
+ *     description: Retrieve paginated ratings and average score for a dataset.
+ */
+datasetsRouter.get('/:id/ratings', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const dataset = await getDataset(id);
+  if (!dataset) return res.status(404).json({ error: 'Dataset not found' });
+
+  const ratings = dataset.ratings || { score: 0, count: 0, reviews: [] };
+  
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const start = (page - 1) * limit;
+  const paginatedReviews = [...ratings.reviews].reverse().slice(start, start + limit);
+
+  return res.json({
+    success: true,
+    score: ratings.score,
+    count: ratings.count,
+    reviews: paginatedReviews,
+    page,
+    totalPages: Math.ceil(ratings.reviews.length / limit)
+  });
+});
+
+/**
+ * @openapi
  * /api/datasets:
  *   post:
  *     summary: Create a new dataset
@@ -589,6 +682,9 @@ datasetsRouter.get('/:id/transactions', requireSellerJwt, async (req: Request, r
  *                 type: number
  *               sellerWallet:
  *                 type: string
+ *               notificationEmail:
+ *                 type: string
+ *                 format: email
  *               data:
  *                 type: object
  *     responses:
@@ -602,9 +698,8 @@ datasetsRouter.post(
   requireSellerMutationAuth,
   validateBody(createDatasetSchema),
   async (req: Request, res: Response) => {
-    const { name, description, type, pricePerQuery, sellerWallet, data } = req.body as z.infer<
-      typeof createDatasetSchema
-    >;
+    const { name, description, type, pricePerQuery, sellerWallet, notificationEmail, data } =
+      req.body as z.infer<typeof createDatasetSchema>;
 
     const now = new Date().toISOString();
     const dataset: Dataset = {
@@ -614,6 +709,7 @@ datasetsRouter.post(
       type,
       pricePerQuery,
       sellerWallet,
+      notificationEmail,
       data,
       queriesServed: 0,
       totalEarned: 0,
@@ -638,7 +734,7 @@ datasetsRouter.post(
       pricePerQuery: dataset.pricePerQuery,
     }).catch(() => {});
 
-    const { data: _d, ...meta } = dataset;
+    const { data: _d, notificationEmail: _notificationEmail, ...meta } = dataset;
     return res.status(201).json({ success: true, dataset: meta });
   },
 );

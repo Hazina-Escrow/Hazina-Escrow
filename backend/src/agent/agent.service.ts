@@ -200,16 +200,56 @@ async function _executeResearch(
     );
   }
 
+  // Budget guard: greedily select datasets that fit within AGENT_FEE_USDC,
+  // sorted cheapest-first so we maximise coverage.
+  type SellerWithDataset = {
+    seller: (typeof availableSellers)[0]['seller'];
+    dataset: NonNullable<(typeof availableSellers)[0]['dataset']>;
+  };
+  const sellersWithDataset = availableSellers.filter(
+    (s): s is SellerWithDataset => s.dataset !== undefined,
+  );
+  const sortedSellers = [...sellersWithDataset].sort(
+    (a, b) => a.dataset.pricePerQuery - b.dataset.pricePerQuery,
+  );
+
+  let budgetRemaining = AGENT_FEE_USDC;
+  const affordableSellers: typeof sortedSellers = [];
+  const skippedSellers: typeof sortedSellers = [];
+
+  for (const s of sortedSellers) {
+    if (s.dataset.pricePerQuery <= budgetRemaining) {
+      affordableSellers.push(s);
+      budgetRemaining -= s.dataset.pricePerQuery;
+    } else {
+      skippedSellers.push(s);
+    }
+  }
+
+  if (skippedSellers.length > 0) {
+    const totalCost = sellersWithDataset.reduce((sum, s) => sum + s.dataset.pricePerQuery, 0);
+    logger.warn(
+      { skipped: skippedSellers.map(s => s.dataset.name), totalCost, agentFee: AGENT_FEE_USDC },
+      '[Agent] Budget guard: skipping datasets that exceed agent fee',
+    );
+    domainMetrics.agentBudgetInsufficient({
+      mode: demo ? 'demo' : 'real',
+      totalCost: parseFloat(totalCost.toFixed(4)),
+      agentFee: AGENT_FEE_USDC,
+      skipped: skippedSellers.length,
+    });
+  }
+
+  // Restore original role order for synthesis consistency
+  const selectedSellers = availableSellers.filter(s =>
+    affordableSellers.some(a => a.dataset.id === s.dataset?.id),
+  ) as typeof affordableSellers;
+
   const purchases: PurchaseRecord[] = [];
   const sellerData: import('../ai/research.service').SellerDataset[] = [];
   let totalSpent = 0;
 
-  for (const { seller, dataset } of availableSellers) {
-    if (!dataset) {
-      logger.warn(`[Agent] No dataset found for type: ${seller.type}`);
-      continue;
-    }
-
+  for (const { seller, dataset } of selectedSellers) {
     let txHash: string;
 
     if (demo) {

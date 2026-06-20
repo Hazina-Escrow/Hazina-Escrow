@@ -201,3 +201,9 @@ jobs:
 
       - name: Run contract tests
         run: cargo test
+
+      - name: Run contract integration tests
+        run: |
+          docker run --detach --rm -p 8000:8000 stellar/quickstart:testing --testnet
+          sleep 5
+          cargo test --features integration-tests

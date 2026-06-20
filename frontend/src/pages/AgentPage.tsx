@@ -195,7 +195,7 @@ export default function AgentPage() {
   }
 
   // Bind t so call sites stay concise
-  const ls = (value: string) => localizeScale(value, t);
+  const ls = (value: string) => localizeScale(value, key => t(key as Parameters<typeof t>[0]));
 
   return (
     <div className="min-h-screen pt-28 pb-20">

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import SellPage from './SellPage';
 import { I18nProvider } from '../i18n';
 import { api } from '../lib/api';
+import { ToastProvider } from '../components/ui/ToastProvider';
 
 vi.mock('../lib/api', () => ({
   api: {
@@ -17,11 +18,13 @@ const walletError =
 
 function renderSellPage() {
   return render(
-    <I18nProvider initialLocale="en">
-      <MemoryRouter>
-        <SellPage />
-      </MemoryRouter>
-    </I18nProvider>,
+    <ToastProvider>
+      <I18nProvider initialLocale="en">
+        <MemoryRouter>
+          <SellPage />
+        </MemoryRouter>
+      </I18nProvider>
+    </ToastProvider>,
   );
 }
 

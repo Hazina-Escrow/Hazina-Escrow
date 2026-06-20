@@ -9,6 +9,14 @@ export interface EnvConfig {
   /** Base URL of the backend API (e.g. http://localhost:3001) */
   apiUrl: string;
   enableDemoMode: boolean;
+  /** API key for backend auth */
+  apiKey: string;
+  /** Max parallel in-flight API requests (default 8) */
+  maxConcurrentRequests: number;
+  /** USDC issuer override */
+  usdcIssuer: string;
+  /** Stellar network: 'testnet' or 'public' */
+  stellarNetwork: string;
 }
 
 const REQUIRED_ENV_VARS = ['VITE_API_URL', 'VITE_API_KEY'] as const;
@@ -51,6 +59,11 @@ export function validateEnv(): EnvConfig {
       .trim()
       .replace(/\/+$/, ''),
     enableDemoMode: readEnableDemoMode(),
+    apiKey: String(import.meta.env.VITE_API_KEY ?? '').trim(),
+    maxConcurrentRequests:
+      parseInt(String(import.meta.env.VITE_MAX_CONCURRENT_REQUESTS ?? '8'), 10) || 8,
+    usdcIssuer: String(import.meta.env.VITE_USDC_ISSUER ?? '').trim(),
+    stellarNetwork: String(import.meta.env.VITE_STELLAR_NETWORK ?? 'testnet').trim(),
   };
 }
 

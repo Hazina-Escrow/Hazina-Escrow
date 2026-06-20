@@ -16,6 +16,30 @@ import { requireApiKey } from '../common/auth.middleware';
 import { encryptSecret } from '../common/secret-crypto';
 import { processPayment } from '../payments/payments.service';
 
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     Webhook:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         sellerWallet:
+ *           type: string
+ *         url:
+ *           type: string
+ *         events:
+ *           type: array
+ *           items:
+ *             type: string
+ *         active:
+ *           type: boolean
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ */
+
 export const webhooksRouter = Router();
 
 const VALID_EVENTS: WebhookEvent[] = [
@@ -95,8 +119,32 @@ const paymentWebhookSchema = z.object({
 });
 
 /**
- * POST /api/webhooks/payment — receiving point for external payment notifications
- * (e.g. from a Stellar network observer or payment processor)
+ * @openapi
+ * /api/webhooks/payment:
+ *   post:
+ *     summary: Receive external payment notification
+ *     description: Entry point for Stellar network observers or payment processors to notify the platform of a completed payment. Requires a valid HMAC signature.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - txHash
+ *               - memo
+ *             properties:
+ *               txHash:
+ *                 type: string
+ *               memo:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Payment processed successfully
+ *       401:
+ *         description: Missing or invalid signature
+ *       404:
+ *         description: Transaction not found for memo
  */
 webhooksRouter.post('/payment', async (req: Request, res: Response) => {
   const signature = req.headers['x-webhook-signature'];
@@ -145,6 +193,49 @@ webhooksRouter.post('/payment', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/webhooks:
+ *   post:
+ *     summary: Register a new webhook
+ *     description: Subscribe a seller wallet to platform events via a webhook URL. Requires API key.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sellerWallet
+ *               - url
+ *               - secret
+ *             properties:
+ *               sellerWallet:
+ *                 type: string
+ *               url:
+ *                 type: string
+ *               secret:
+ *                 type: string
+ *               events:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [payment.received, payment.forwarded, dataset.queried, dataset.created, ping]
+ *     responses:
+ *       201:
+ *         description: Webhook created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 webhook:
+ *                   $ref: '#/components/schemas/Webhook'
+ *       400:
+ *         description: Invalid request body
+ */
 // POST /api/webhooks — register a new webhook
 webhooksRouter.post(
   '/',
@@ -179,6 +270,32 @@ webhooksRouter.post(
   },
 );
 
+/**
+ * @openapi
+ * /api/webhooks/{sellerWallet}:
+ *   get:
+ *     summary: List webhooks for a seller
+ *     parameters:
+ *       - in: path
+ *         name: sellerWallet
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of webhooks (secret omitted)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 webhooks:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Webhook'
+ */
 // GET /api/webhooks/:sellerWallet — list webhooks for a seller
 webhooksRouter.get('/:sellerWallet', async (req: Request, res: Response) => {
   const webhooks = await getWebhooksForSeller(req.params.sellerWallet);
@@ -188,6 +305,23 @@ webhooksRouter.get('/:sellerWallet', async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * @openapi
+ * /api/webhooks/{id}:
+ *   delete:
+ *     summary: Remove a webhook
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Webhook deleted
+ *       404:
+ *         description: Webhook not found
+ */
 // DELETE /api/webhooks/:id — remove a webhook
 webhooksRouter.delete('/:id', requireApiKey, async (req: Request, res: Response) => {
   const webhook = await getWebhookById(req.params.id);
@@ -198,6 +332,25 @@ webhooksRouter.delete('/:id', requireApiKey, async (req: Request, res: Response)
   return res.json({ success: true, message: 'Webhook deleted' });
 });
 
+/**
+ * @openapi
+ * /api/webhooks/{id}/test:
+ *   post:
+ *     summary: Send a test ping to a webhook
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Test ping dispatched
+ *       400:
+ *         description: Webhook is inactive
+ *       404:
+ *         description: Webhook not found
+ */
 // POST /api/webhooks/:id/test — send a test ping event
 webhooksRouter.post('/:id/test', requireApiKey, async (req: Request, res: Response) => {
   const webhook = await getWebhookById(req.params.id);
@@ -220,6 +373,49 @@ webhooksRouter.post('/:id/test', requireApiKey, async (req: Request, res: Respon
   }
 });
 
+/**
+ * @openapi
+ * /api/webhooks/{id}:
+ *   patch:
+ *     summary: Update a webhook
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               url:
+ *                 type: string
+ *               secret:
+ *                 type: string
+ *               events:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               active:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Webhook updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 webhook:
+ *                   $ref: '#/components/schemas/Webhook'
+ *       404:
+ *         description: Webhook not found
+ */
 // PATCH /api/webhooks/:id — update webhook (url, secret, events, active)
 webhooksRouter.patch(
   '/:id',

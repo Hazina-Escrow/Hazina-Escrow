@@ -9,6 +9,7 @@ import {
   DollarSign,
   FileJson,
   User,
+  Mail,
   Zap,
   Info,
 } from 'lucide-react';
@@ -17,6 +18,7 @@ import { formatUSDC, getTypeMeta, DATA_TYPE_META } from '../lib/utils';
 import clsx from 'clsx';
 import { getCatalog, useI18n } from '../i18n';
 import { useToastContext } from '../components/ui/ToastProvider';
+import { Toast, ToastProps } from '../components/ui/Toast';
 
 const PRICE_PRESETS = [0.01, 0.02, 0.05, 0.1, 0.25, 0.5];
 
@@ -27,7 +29,9 @@ interface FormState {
   description: string;
   type: string;
   pricePerQuery: string;
+  paymentToken: 'USDC' | 'EURC' | 'XLM';
   sellerWallet: string;
+  notificationEmail: string;
   dataText: string;
 }
 
@@ -36,7 +40,9 @@ const INITIAL: FormState = {
   description: '',
   type: 'whale-wallets',
   pricePerQuery: '0.05',
+  paymentToken: 'USDC',
   sellerWallet: '',
+  notificationEmail: '',
   dataText: '',
 };
 
@@ -44,7 +50,7 @@ const STORAGE_KEY = 'hazina_sell_form_draft';
 const DRAFT_EXPIRY_HOURS = 24;
 
 interface StoredDraft {
-  data: Omit<FormState, 'sellerWallet'>; // Exclude sensitive wallet address
+  data: Omit<FormState, 'sellerWallet' | 'notificationEmail'>;
   timestamp: number;
 }
 
@@ -69,7 +75,8 @@ function loadDraft(): {
     const restoredForm: FormState = {
       ...INITIAL,
       ...stored.data,
-      sellerWallet: '', // Never restore sensitive wallet address
+      sellerWallet: '',
+      notificationEmail: '',
     };
 
     return { form: restoredForm, wasRestored: true };
@@ -110,17 +117,20 @@ export default function SellPage() {
   const catalog = getCatalog(locale);
   const navigate = useNavigate();
   const { success: toastSuccess, error: toastError } = useToastContext();
-  const [form, setForm] = useState<FormState>(loadDraft);
+  const [form, setForm] = useState<FormState>(() => loadDraft().form);
   const [tab, setTab] = useState<Tab>('form');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [jsonError, setJsonError] = useState('');
+  const [priceTouched, setPriceTouched] = useState(false);
+  const [walletTouched, setWalletTouched] = useState(false);
   const [toast, setToast] = useState<ToastProps | null>(null);
 
   // Track if we've shown the draft restored toast
   const hasShownRestoreToastRef = useRef(false);
+  const confirmBtnRef = useRef<HTMLButtonElement>(null);
 
   // Show draft restored notification on first load
   useEffect(() => {
@@ -199,6 +209,9 @@ export default function SellPage() {
   const isPriceInvalid = priceTouched && parseFloat(form.pricePerQuery) <= 0;
 
   const isWalletInvalid = walletTouched && !isValidStellarAddress(form.sellerWallet);
+  const isNotificationEmailInvalid =
+    form.notificationEmail.trim().length > 0 &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.notificationEmail.trim());
 
   const isValid =
     form.name.trim() &&
@@ -207,6 +220,7 @@ export default function SellPage() {
     parseFloat(form.pricePerQuery) > 0 &&
     !isPriceInvalid &&
     isValidStellarAddress(form.sellerWallet) &&
+    !isNotificationEmailInvalid &&
     form.dataText.trim() &&
     !jsonError;
 
@@ -221,7 +235,11 @@ export default function SellPage() {
         description: form.description.trim(),
         type: form.type,
         pricePerQuery: parseFloat(form.pricePerQuery),
+        paymentToken: form.paymentToken,
         sellerWallet: form.sellerWallet.trim(),
+        ...(form.notificationEmail.trim()
+          ? { notificationEmail: form.notificationEmail.trim() }
+          : {}),
         data: JSON.parse(form.dataText),
       });
       clearDraft();
@@ -340,8 +358,8 @@ export default function SellPage() {
                   />
                 </div>
 
-                {/* Type + Price row */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Type + Price + Token row */}
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="text-sm font-body font-medium text-foreground-muted mb-2 flex items-center gap-2">
                       <Zap className="w-4 h-4 text-gold" />
@@ -385,9 +403,23 @@ export default function SellPage() {
                       </p>
                     )}
                   </div>
-                </div>
 
-                {/* Price presets */}
+                  <div>
+                    <label className="text-sm font-body font-medium text-foreground-muted mb-2 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-gold" />
+                      {t('sell.form.paymentToken')} <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={form.paymentToken}
+                      onChange={set('paymentToken') as any}
+                      className="w-full bg-void/60 border border-border/60 rounded-xl px-4 py-3 text-sm font-body text-foreground focus:outline-none focus:border-gold/50 transition-colors"
+                    >
+                      <option value="USDC">USDC</option>
+                      <option value="EURC">EURC</option>
+                      <option value="XLM">XLM</option>
+                    </select>
+                  </div>
+                </div>
                 <div>
                   <p className="text-xs text-muted-2 font-body mb-2">
                     {t('sell.form.quickPricePresets')}
@@ -437,6 +469,36 @@ export default function SellPage() {
                   <p className="text-xs text-muted-2 font-body mt-1.5 flex items-start gap-1">
                     <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
                     {t('sell.form.sellerWalletHelp')}
+                  </p>
+                </div>
+
+                {/* Optional seller notifications */}
+                <div>
+                  <label className="text-sm font-body font-medium text-foreground-muted mb-2 flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-gold" />
+                    {t('sell.form.notificationEmail')}{' '}
+                    <span className="text-muted-2">{t('common.labels.optional')}</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={form.notificationEmail}
+                    onChange={set('notificationEmail')}
+                    placeholder={t('sell.form.notificationEmailPlaceholder')}
+                    className={clsx(
+                      'w-full bg-void/60 border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted focus:outline-none transition-colors',
+                      isNotificationEmailInvalid
+                        ? 'border-red-500/50 focus:border-red-500/70'
+                        : 'border-border/60 focus:border-gold/50',
+                    )}
+                  />
+                  {isNotificationEmailInvalid && (
+                    <p className="text-xs text-red-400 mt-1 font-body">
+                      {t('sell.form.notificationEmailError')}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-2 font-body mt-1.5 flex items-start gap-1">
+                    <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    {t('sell.form.notificationEmailHelp')}
                   </p>
                 </div>
 
@@ -545,7 +607,7 @@ export default function SellPage() {
                         You are about to list{' '}
                         <span className="text-foreground font-medium">{form.name}</span> at{' '}
                         <span className="text-gold font-semibold">
-                          ${formatUSDC(Number(form.pricePerQuery), locale)} USDC
+                          ${formatUSDC(Number(form.pricePerQuery), locale)} {form.paymentToken}
                         </span>{' '}
                         per query. This action cannot be undone.
                       </p>
@@ -583,7 +645,7 @@ export default function SellPage() {
                     <div className="text-right">
                       <p className="text-xs text-muted-2 mb-0.5">{t('common.units.perQuery')}</p>
                       <p className="font-display font-bold text-xl text-gold">
-                        ${formatUSDC(Number(form.pricePerQuery || '0'), locale)}
+                        ${formatUSDC(Number(form.pricePerQuery || '0'), locale)} {form.paymentToken}
                       </p>
                     </div>
                   </div>
@@ -605,6 +667,7 @@ export default function SellPage() {
                   <div className="w-full py-3 rounded-xl border border-border-gold/30 text-gold text-sm font-body font-semibold text-center">
                     {t('sell.preview.buyLabel', {
                       price: formatUSDC(Number(form.pricePerQuery || '0'), locale),
+                      token: form.paymentToken,
                     })}
                   </div>
                 </div>

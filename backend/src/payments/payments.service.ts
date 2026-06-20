@@ -11,8 +11,10 @@ import {
   getTransactionByMemo,
   updateTransactionByMemo,
   getTransactionsWithFailedSellerNotification,
+  updateDataset,
 } from '../common/storage';
 import { Sentry } from '../common/sentry';
+import { sendSellerNotificationEmail } from '../notifications/email.service';
 import { sellerShare, platformFee as computePlatformFee } from '../common/constants';
 import { generateDataSummary } from '../ai/claude.service';
 import { notifySeller } from '../webhooks/webhook.service';
@@ -106,6 +108,25 @@ export async function deliverVerifiedPayment(params: {
         extra: { txHash, datasetId: dataset.id, sellerWallet: dataset.sellerWallet },
       });
     });
+
+  if (dataset.notificationEmail) {
+    void sendSellerNotificationEmail({
+      to: dataset.notificationEmail,
+      datasetName: dataset.name,
+      amount: dataset.pricePerQuery,
+      sellerAmount,
+      txHash,
+      timestamp: new Date().toISOString(),
+    }).catch((emailError: unknown) => {
+      console.error(
+        `[Escrow] Seller email notification failed for txHash=${txHash} dataset=${dataset.id}`,
+      );
+      Sentry.captureException(emailError, {
+        tags: { component: 'seller-email-notification' },
+        extra: { txHash, datasetId: dataset.id },
+      });
+    });
+  }
 
   domainMetrics.datasetQueried({
     datasetType: dataset.type,
@@ -231,6 +252,7 @@ export async function processPayment(params: {
 
   const transactionId = existing?.id || `tx-${uuidv4()}`;
   const destinationAddress = process.env.ESCROW_WALLET || dataset.sellerWallet;
+  const tokenCode = dataset.paymentToken || 'USDC';
 
   transactionEventEmitter.updateTransactionStatus(transactionId, dataset.id, 'verifying', {
     amount: dataset.pricePerQuery.toString(),
@@ -241,6 +263,7 @@ export async function processPayment(params: {
     txHash,
     expectedAmount: dataset.pricePerQuery,
     destinationAddress,
+    tokenCode,
   });
 
   if (!verification.valid) {
@@ -379,7 +402,7 @@ export async function retryFailedSellerNotifications(): Promise<void> {
         // Exhausted retries — surface a durable alert so an operator can investigate
         console.error(
           `[Escrow] Seller notification permanently failed after ${MAX_SELLER_NOTIFICATION_ATTEMPTS} attempts ` +
-            `txHash=${tx.txHash} dataset=${tx.datasetId} seller=${tx.datasetId}`,
+          `txHash=${tx.txHash} dataset=${tx.datasetId} seller=${tx.datasetId}`,
         );
         Sentry.captureMessage(`Seller notification permanently failed: txHash=${tx.txHash}`, {
           level: 'error',
@@ -421,7 +444,7 @@ export async function retryFailedSellerNotifications(): Promise<void> {
         });
         console.error(
           `[Escrow] Seller notification retry ${attempts}/${MAX_SELLER_NOTIFICATION_ATTEMPTS} failed ` +
-            `txHash=${tx.txHash}: ${errMsg}`,
+          `txHash=${tx.txHash}: ${errMsg}`,
         );
       }
     }),

@@ -27,9 +27,11 @@ export const logger = pino({
       '*.SELLER_JWT_SECRET',
       // Third-party service keys
       'ANTHROPIC_API_KEY',
+      'RESEND_API_KEY',
       'DATADOG_API_KEY',
       'DATABASE_URL',
       '*.ANTHROPIC_API_KEY',
+      '*.RESEND_API_KEY',
       '*.DATABASE_URL',
     ],
     censor: '[REDACTED]',

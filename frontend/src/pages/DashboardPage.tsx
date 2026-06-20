@@ -812,65 +812,6 @@ export default function DashboardPage() {
                         <span className="text-xs text-foreground-muted">
                           {buyer.count.toLocaleString(locale)} queries
                         </span>
-
-          {/* Recent transactions */}
-          <div className="glass-card p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-display font-semibold text-foreground">
-                {t('dashboard.transactions.title')}
-              </h3>
-              {isRefetching ? (
-                <Loader2
-                  className="w-4 h-4 text-gold animate-spin"
-                  aria-label={t('dashboard.refreshing')}
-                />
-              ) : (
-                <Clock className="w-4 h-4 text-muted" />
-              )}
-            </div>
-            {recentTx.length === 0 ? (
-              <div className="text-center py-8">
-                <Activity className="w-8 h-8 text-muted mx-auto mb-2" />
-                <p className="text-sm text-foreground-muted font-body">
-                  {t('dashboard.transactions.empty')}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {recentTx.map(tx => {
-                  const ds = datasets.find(d => d.id === tx.datasetId);
-                  return (
-                    <div
-                      key={tx.id}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-surface-2/40 hover:bg-surface-2/70 border border-border/20 transition-all duration-200"
-                    >
-                      <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                        <DollarSign className="w-4 h-4 text-emerald-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-body font-medium text-foreground truncate">
-                          {ds?.name ?? t('dashboard.datasets.unknownDataset')}
-                        </p>
-                        <p className="text-xs text-muted-2 font-mono truncate">
-                          {tx.txHash.startsWith('demo')
-                            ? t('dashboard.transactions.demoMode')
-                            : tx.txHash.slice(0, 20) + '...'}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-display font-bold text-gold">
-                          +$
-                          {(tx.amount * 0.95).toLocaleString(locale, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 4,
-                          })}
-                        </p>
-                        <p className="text-xs text-muted-2 font-body">
-                          {new Date(tx.timestamp).toLocaleDateString(locale, {
-                            dateStyle: 'medium',
-                          })}
-                        </p>
-
                       </div>
                     ))}
                   </div>

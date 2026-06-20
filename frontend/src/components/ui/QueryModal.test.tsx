@@ -4,6 +4,7 @@ import QueryModal from './QueryModal';
 import { I18nProvider } from '../../i18n';
 import { api } from '../../lib/api';
 import * as env from '../../lib/env';
+import { ToastProvider } from './ToastProvider';
 
 vi.mock('../../lib/api', () => ({
   api: {
@@ -12,6 +13,15 @@ vi.mock('../../lib/api', () => ({
     verifyPayment: vi.fn(),
   },
 }));
+
+vi.mock('../../lib/stellarWallets', async () => {
+  const actual = await vi.importActual<typeof import('../../lib/stellarWallets')>('../../lib/stellarWallets');
+  return {
+    ...actual,
+    detectWallets: vi.fn(() => Promise.resolve({ freighter: false, albedo: false })),
+    launchStellarWalletProvider: vi.fn(() => Promise.resolve(null)),
+  };
+});
 
 const dataset = {
   id: 'ds-query-1',
@@ -33,9 +43,11 @@ function renderModal(overrides?: {
   const onSuccess = overrides?.onSuccess ?? vi.fn();
 
   render(
-    <I18nProvider initialLocale="en">
-      <QueryModal dataset={dataset} onClose={onClose} onSuccess={onSuccess} />
-    </I18nProvider>,
+    <ToastProvider>
+      <I18nProvider initialLocale="en">
+        <QueryModal dataset={dataset} onClose={onClose} onSuccess={onSuccess} />
+      </I18nProvider>
+    </ToastProvider>,
   );
 
   return { onClose, onSuccess };
@@ -157,9 +169,11 @@ describe('QueryModal', () => {
     vi.mocked(api.verifyPayment).mockRejectedValueOnce(new Error('Network timeout'));
 
     const { rerender } = render(
-      <I18nProvider initialLocale="en">
-        <QueryModal isOpen={true} dataset={dataset} onClose={vi.fn()} onSuccess={vi.fn()} />
-      </I18nProvider>,
+      <ToastProvider>
+        <I18nProvider initialLocale="en">
+          <QueryModal isOpen={true} dataset={dataset} onClose={vi.fn()} onSuccess={vi.fn()} />
+        </I18nProvider>
+      </ToastProvider>,
     );
 
     // Advance to the payment step
@@ -176,16 +190,20 @@ describe('QueryModal', () => {
 
     // Simulate close: set isOpen=false (component stays mounted, state preserved)
     rerender(
-      <I18nProvider initialLocale="en">
-        <QueryModal isOpen={false} dataset={dataset} onClose={vi.fn()} onSuccess={vi.fn()} />
-      </I18nProvider>,
+      <ToastProvider>
+        <I18nProvider initialLocale="en">
+          <QueryModal isOpen={false} dataset={dataset} onClose={vi.fn()} onSuccess={vi.fn()} />
+        </I18nProvider>
+      </ToastProvider>,
     );
 
     // Reopen: set isOpen=true — the useEffect should reset all state
     rerender(
-      <I18nProvider initialLocale="en">
-        <QueryModal isOpen={true} dataset={dataset} onClose={vi.fn()} onSuccess={vi.fn()} />
-      </I18nProvider>,
+      <ToastProvider>
+        <I18nProvider initialLocale="en">
+          <QueryModal isOpen={true} dataset={dataset} onClose={vi.fn()} onSuccess={vi.fn()} />
+        </I18nProvider>
+      </ToastProvider>,
     );
 
     // Modal should be back at the details step with no stale error or tx hash
