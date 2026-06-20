@@ -10,7 +10,9 @@ import {
   getDataset,
   getTransactions,
   getTransactionsCount,
+
   getTransactionByHash,
+n
   updateDataset,
   type Dataset,
 } from '../common/storage';
@@ -124,9 +126,68 @@ const createDatasetSchema = z.object({
 
 export const datasetsRouter = Router();
 
+function maskSensitiveValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    if (/^G[A-Z0-9]{55}$/.test(value) || /^0x[a-fA-F0-9]{40}$/.test(value)) {
+      return `${value.slice(0, 6)}…${value.slice(-4)}`;
+    }
+    if (value.includes('@')) return value.replace(/(^.).*(@.*$)/, '$1***$2');
+    return value.length > 42 ? `${value.slice(0, 18)}…${value.slice(-6)}` : value;
+  }
+  if (Array.isArray(value)) return value.map(maskSensitiveValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, maskSensitiveValue(v)]),
+    );
+  }
+  return value;
+}
+
+function getPreviewRow(data: Record<string, unknown>): Record<string, unknown> | unknown[] {
+  const firstArray = Object.values(data).find(Array.isArray) as unknown[] | undefined;
+  const first = firstArray?.[0] ?? data;
+  return maskSensitiveValue(first) as Record<string, unknown> | unknown[];
+}
+
+function getSchemaFields(data: Record<string, unknown>): string[] {
+  const preview = getPreviewRow(data);
+  if (preview && typeof preview === 'object' && !Array.isArray(preview))
+    return Object.keys(preview);
+  return Object.keys(data);
+}
+
+function getSampleSize(data: Record<string, unknown>): number {
+  const firstArray = Object.values(data).find(Array.isArray) as unknown[] | undefined;
+  return firstArray?.length ?? Object.keys(data).length;
+}
+
 function withoutRawData(dataset: Dataset) {
+
+  const { data: _data, ...meta } = dataset;
+  return {
+    ...meta,
+    ratings: meta.ratings ?? { score: 0, count: 0 },
+    priceHistory: meta.priceHistory ?? [
+      { price: dataset.pricePerQuery, changedAt: dataset.createdAt },
+    ],
+  };
+}
+
+function toDatasetDetail(dataset: Dataset) {
+  return {
+    ...withoutRawData(dataset),
+    metadata: {
+      type: dataset.type,
+      schemaFields: getSchemaFields(dataset.data),
+      sampleSize: getSampleSize(dataset.data),
+      lastUpdated: dataset.createdAt,
+    },
+    preview: getPreviewRow(dataset.data),
+  };
+
   const { data: _data, notificationEmail: _notificationEmail, ...meta } = dataset;
   return meta;
+
 }
 
 async function getSellerDashboardData(sellerWallet: string) {
@@ -449,9 +510,27 @@ datasetsRouter.get('/transactions', requireSellerJwt, async (req: Request, res: 
 datasetsRouter.get('/:id', async (req: Request, res: Response) => {
   const dataset = await getDataset(req.params.id);
   if (!dataset) return res.status(404).json({ error: 'Dataset not found' });
-  const meta = withoutRawData(dataset);
-  return res.json({ success: true, dataset: meta });
+  return res.json({ success: true, dataset: toDatasetDetail(dataset) });
 });
+
+const ratingSchema = z.object({ score: z.coerce.number().int().min(1).max(5) });
+
+datasetsRouter.post(
+  '/:id/ratings',
+  validateBody(ratingSchema),
+  async (req: Request, res: Response) => {
+    const dataset = await getDataset(req.params.id);
+    if (!dataset) return res.status(404).json({ error: 'Dataset not found' });
+    const { score } = req.body as z.infer<typeof ratingSchema>;
+    const current = dataset.ratings ?? { score: 0, count: 0 };
+    const count = current.count + 1;
+    const average = Number(((current.score * current.count + score) / count).toFixed(2));
+    const updated = await updateDataset(dataset.id, { ratings: { score: average, count } });
+    return res
+      .status(201)
+      .json({ success: true, ratings: updated?.ratings ?? { score: average, count } });
+  },
+);
 
 /**
  * @openapi
@@ -622,6 +701,7 @@ datasetsRouter.post(
     const { name, description, type, pricePerQuery, sellerWallet, notificationEmail, data } =
       req.body as z.infer<typeof createDatasetSchema>;
 
+    const now = new Date().toISOString();
     const dataset: Dataset = {
       id: `ds-${uuidv4()}`,
       name,
@@ -633,7 +713,9 @@ datasetsRouter.post(
       data,
       queriesServed: 0,
       totalEarned: 0,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      ratings: { score: 0, count: 0 },
+      priceHistory: [{ price: pricePerQuery, changedAt: now }],
     };
 
     await addDataset(dataset);

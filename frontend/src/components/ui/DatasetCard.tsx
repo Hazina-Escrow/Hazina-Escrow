@@ -1,5 +1,10 @@
 import { useState } from 'react';
+
+import { Link } from 'react-router-dom';
+import { ShoppingCart, TrendingUp, User, Zap, Clock, ImageOff } from 'lucide-react';
+
 import { ShoppingCart, TrendingUp, User, Zap, Clock, ImageOff, Star } from 'lucide-react';
+
 import clsx from 'clsx';
 import { DatasetMeta } from '../../lib/api';
 import { truncateAddress, formatUSDC, getTypeMeta } from '../../lib/utils';
@@ -8,7 +13,7 @@ import { useI18n } from '../../i18n';
 
 interface Props {
   dataset: DatasetMeta;
-  onBuy: (dataset: DatasetMeta) => void;
+  onBuy?: (dataset: DatasetMeta) => void;
 }
 
 export default function DatasetCard({ dataset, onBuy }: Props) {
@@ -19,13 +24,15 @@ export default function DatasetCard({ dataset, onBuy }: Props) {
   const typeLabel = typeMeta.labelKey ? t(typeMeta.labelKey) : typeMeta.label;
 
   return (
-    <div
+    <Link
+      to={`/marketplace/${dataset.id}`}
       className={clsx(
         'glass-card group relative cursor-pointer transition-all duration-300 overflow-hidden',
         hovered && 'shadow-card-hover border-border-gold/30 translate-y-[-2px]',
       )}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      aria-label={`View details for ${dataset.name}`}
     >
       {/* Top gold shimmer line */}
       <div
@@ -158,7 +165,12 @@ export default function DatasetCard({ dataset, onBuy }: Props) {
 
         {/* Buy button */}
         <button
-          onClick={() => onBuy(dataset)}
+          onClick={event => {
+            if (!onBuy) return;
+            event.preventDefault();
+            event.stopPropagation();
+            onBuy(dataset);
+          }}
           className={clsx(
             'w-full flex items-center justify-center gap-2 py-3 rounded-xl font-body font-semibold text-sm transition-all duration-300',
             hovered
@@ -170,6 +182,6 @@ export default function DatasetCard({ dataset, onBuy }: Props) {
           {t('sell.preview.buyLabel', { price: formatUSDC(dataset.pricePerQuery, locale) })}
         </button>
       </div>
-    </div>
+    </Link>
   );
 }

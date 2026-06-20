@@ -5,6 +5,7 @@ import Navbar from './components/layout/Navbar';
 import OnboardingTour from './components/OnboardingTour';
 import LandingPage from './pages/LandingPage';
 import MarketplacePage from './pages/MarketplacePage';
+import DatasetDetailPage from './pages/DatasetDetailPage';
 import SellPage from './pages/SellPage';
 import DashboardPage from './pages/DashboardPage';
 import AgentPage from './pages/AgentPage';
@@ -49,6 +50,14 @@ export default function App() {
               element={
                 <RouteBoundary label="Landing">
                   <LandingPage />
+                </RouteBoundary>
+              }
+            />
+            <Route
+              path="/marketplace/:datasetId"
+              element={
+                <RouteBoundary label="Dataset detail">
+                  <DatasetDetailPage />
                 </RouteBoundary>
               }
             />
