@@ -155,7 +155,7 @@ function buildChartData(transactions: Transaction[], locale: string) {
     });
     if (days[key]) {
       days[key].queries += 1;
-      days[key].earned += tx.amount * 0.95;
+      days[key].earned += tx.sellerReceived ?? tx.amount;
     }
   });
   return Object.entries(days).map(([day, v]) => ({ day, ...v }));
@@ -761,7 +761,7 @@ export default function DashboardPage() {
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-sm font-display font-bold text-gold">
-                              +${(tx.amount * 0.95).toFixed(4)}
+                              +${(tx.sellerReceived ?? tx.amount).toFixed(4)}
                             </p>
                             <p className="text-xs text-muted-2 font-body">
                               {formatTimeAgo(tx.timestamp, locale)}

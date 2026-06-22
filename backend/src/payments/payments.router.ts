@@ -291,7 +291,7 @@ paymentsRouter.post(
       });
 
       // Forward seller's share on-chain; failures enter the DLQ for retry
-      const sellerAmount = parseFloat((dataset.pricePerQuery * 0.95).toFixed(7));
+      const sellerAmount = sellerShare(dataset.pricePerQuery);
       try {
         const payment = await sendUsdcPayment({
           destinationAddress: dataset.sellerWallet,

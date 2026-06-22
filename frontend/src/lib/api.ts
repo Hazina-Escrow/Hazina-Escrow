@@ -174,6 +174,7 @@ export interface Transaction {
   datasetId: string;
   txHash: string;
   amount: number;
+  sellerReceived?: number;
   buyerQuery?: string;
   aiSummary?: string;
   timestamp: string;
@@ -258,6 +259,7 @@ export const TransactionSchema = z.object({
   datasetId: z.string(),
   txHash: z.string(),
   amount: z.number(),
+  sellerReceived: z.number().optional(),
   buyerQuery: z.string().optional(),
   aiSummary: z.string().optional(),
   timestamp: z.string(),

@@ -15,6 +15,7 @@ import {
 n
   updateDataset,
   type Dataset,
+  type Transaction,
 } from '../common/storage';
 import { requireSellerJwt, requireSellerMutationAuth } from '../common/auth.middleware';
 import { domainMetrics } from '../common/datadog';
@@ -190,6 +191,14 @@ function toDatasetDetail(dataset: Dataset) {
 
 }
 
+function toTransactionResponse(tx: Transaction) {
+  const { sellerAmount, ...rest } = tx;
+  return {
+    ...rest,
+    ...(sellerAmount !== undefined ? { sellerReceived: sellerAmount } : {}),
+  };
+}
+
 async function getSellerDashboardData(sellerWallet: string) {
   const allDatasets = await getAllDatasets();
   const sellerDatasets = allDatasets.filter(dataset => dataset.sellerWallet === sellerWallet);
@@ -200,7 +209,7 @@ async function getSellerDashboardData(sellerWallet: string) {
 
   return {
     datasets: sellerDatasets.map(withoutRawData),
-    transactions,
+    transactions: transactions.map(toTransactionResponse),
     stats: {
       totalDatasets: sellerDatasets.length,
       totalQueries: sellerDatasets.reduce((sum, dataset) => sum + dataset.queriesServed, 0),
@@ -571,7 +580,7 @@ datasetsRouter.get('/:id/transactions', requireSellerJwt, async (req: Request, r
   const transactions = await getTransactions(req.params.id, limit, offset);
   const total = await getTransactionsCount(req.params.id);
 
-  return res.json({ success: true, transactions, total, limit, offset });
+  return res.json({ success: true, transactions: transactions.map(toTransactionResponse), total, limit, offset });
 });
 
 /**
