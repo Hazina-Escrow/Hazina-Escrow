@@ -17,6 +17,7 @@ import {
   updateDataset,
   addTransaction,
   getUnpaidTransactions,
+  reserveTxHash,
 } from '../common/storage';
 import { validateBody } from '../common/validate';
 import { sellerShare, platformFee as computePlatformFee } from '../common/constants';
@@ -283,6 +284,7 @@ paymentsRouter.post(
       return res.status(400).json({ error: 'Escrow already processed' });
     }
 
+    const releaseReservation = reserveTxHash(txHash);
     try {
       const result = await processPayment({
         txHash,
@@ -332,6 +334,8 @@ paymentsRouter.post(
       }
       console.error('[Verify] Unexpected error processing payment:', err);
       return res.status(500).json({ error: 'Payment verification failed — please try again' });
+    } finally {
+      releaseReservation();
     }
   },
 );
