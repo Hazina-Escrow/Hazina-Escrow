@@ -46,11 +46,6 @@ vi.mock('../common/storage', async () => {
 import { webhooksRouter } from './webhook.router';
 import { addTransaction, writeStore, Store } from '../common/storage';
 import { signPayload } from './webhook.service';
-import fs from 'fs';
-import path from 'path';
-
-const DATA_PATH = path.join(__dirname, '../../../data/datasets.json');
-const BACKUP_PATH = path.join(__dirname, '../../../data/datasets.json.bak');
 
 describe('Webhook Router', () => {
   let app: Express;
@@ -62,10 +57,6 @@ describe('Webhook Router', () => {
       storage._clearMockTransactions();
     }
 
-    // Backup current store
-    if (fs.existsSync(DATA_PATH)) {
-      fs.copyFileSync(DATA_PATH, BACKUP_PATH);
-    }
     // Seed clean store
     const clean: Store = { datasets: [], transactions: [], webhooks: [], payoutFailures: [] };
     await writeStore(clean);
@@ -77,12 +68,8 @@ describe('Webhook Router', () => {
     process.env.PAYMENT_WEBHOOK_SECRET = 'test-secret';
   });
 
-  afterEach(() => {
-    // Restore backup
-    if (fs.existsSync(BACKUP_PATH)) {
-      fs.copyFileSync(BACKUP_PATH, DATA_PATH);
-      fs.unlinkSync(BACKUP_PATH);
-    }
+  afterEach(async () => {
+    await writeStore({ datasets: [], transactions: [], webhooks: [], payoutFailures: [] });
   });
 
   describe('POST /api/v1/webhooks/payment', () => {

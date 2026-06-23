@@ -3,7 +3,12 @@ import Database from 'better-sqlite3';
 import { drizzle as drizzleSqlite } from 'drizzle-orm/better-sqlite3';
 import { Pool } from 'pg';
 import * as pgSchema from './schema';
-import { datasetsSqlite, transactionsSqlite, webhooksSqlite } from './schema';
+import {
+  datasetsSqlite,
+  transactionsSqlite,
+  webhooksSqlite,
+  payoutFailuresSqlite,
+} from './schema';
 
 const databaseUrl = process.env.DATABASE_URL || 'file:./sqlite.db';
 
@@ -25,6 +30,7 @@ const db = (() => {
         datasets: datasetsSqlite,
         transactions: transactionsSqlite,
         webhooks: webhooksSqlite,
+        payoutFailures: payoutFailuresSqlite,
       },
     });
   }

@@ -1,6 +1,4 @@
 import express, { Express } from 'express';
-import fs from 'fs';
-import path from 'path';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type Store, writeStore } from '../common/storage';
@@ -46,8 +44,6 @@ import { sendUsdcPayment } from '../agent/agent.wallet';
 import { agentRouter } from '../agent/agent.router';
 import { paymentsRouter } from './payments.router';
 
-const DATA_PATH = path.join(__dirname, '../../../data/datasets.json');
-const BACKUP_PATH = path.join(__dirname, '../../../data/datasets.json.payments.integration.bak');
 
 const SELLER_WALLET = `G${'A'.repeat(55)}`;
 const ESCROW_WALLET = `G${'B'.repeat(55)}`;
@@ -86,7 +82,6 @@ describeSocket('payments and agent integration routes', () => {
   let app: Express;
 
   beforeEach(async () => {
-    if (fs.existsSync(DATA_PATH)) fs.copyFileSync(DATA_PATH, BACKUP_PATH);
     // Seed store with a pending transaction that has memo 'haz' so processPayment can find it
     await writeStore({
       ...BASE_STORE,
@@ -139,15 +134,11 @@ describeSocket('payments and agent integration routes', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
     delete process.env.ESCROW_WALLET;
     delete process.env.ADMIN_API_KEY;
-
-    if (fs.existsSync(BACKUP_PATH)) {
-      fs.copyFileSync(BACKUP_PATH, DATA_PATH);
-      fs.unlinkSync(BACKUP_PATH);
-    }
+    await writeStore({ datasets: [], transactions: [], webhooks: [], payoutFailures: [] });
   });
 
   it('POST /api/v1/payments/query/:id returns 404 for unknown dataset', async () => {
