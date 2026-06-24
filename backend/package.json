@@ -27,7 +27,7 @@
     "better-sqlite3": "^9.2.2",
     "cors": "^2.8.5",
     "dd-trace": "^4.43.0",
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.4.2",
     "drizzle-orm": "^0.30.10",
     "express": "^4.19.2",
     "express-async-errors": "^3.1.1",
