@@ -3,6 +3,7 @@ import { getCircuitBreaker } from '../common/circuit-breaker';
 import { domainMetrics } from '../common/datadog';
 import { HORIZON_URL, USDC_ISSUER, EURC_ISSUER, getTokenByCode } from '../lib/stellar.config';
 import { logger } from '../lib/logger';
+import { parsePositiveInt } from '../common/env';
 
 const server = new StellarSdk.Horizon.Server(HORIZON_URL);
 
@@ -12,7 +13,7 @@ const stellarBreaker = getCircuitBreaker('stellar-horizon', {
 });
 
 // Configurable via env; read per-call so tests can override it after module load
-const getStellarTimeoutMs = () => parseInt(process.env.STELLAR_TIMEOUT_MS ?? '10000', 10);
+const getStellarTimeoutMs = () => parsePositiveInt(process.env.STELLAR_TIMEOUT_MS, 10000);
 
 interface VerifyParams {
   txHash: string;
