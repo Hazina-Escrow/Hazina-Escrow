@@ -193,6 +193,49 @@ export function requireSellerMutationAuth(req: Request, res: Response, next: Nex
   next();
 }
 
+/**
+ * For GET /:sellerWallet — accepts the shared API key (admin, no wallet scope
+ * restriction) OR a seller JWT scoped to the wallet in req.params.sellerWallet.
+ * In non-production, skips auth when neither API_KEY nor SELLER_JWT_SECRET is set.
+ */
+export function requireSellerReadAuth(req: Request, res: Response, next: NextFunction) {
+  const apiKey = process.env.API_KEY;
+  const secret = process.env.SELLER_JWT_SECRET;
+
+  if (!apiKey && !secret) {
+    if (process.env.NODE_ENV === 'production') {
+      return res
+        .status(503)
+        .json({ error: 'Server misconfigured: API_KEY or SELLER_JWT_SECRET must be set' });
+    }
+    logger.warn('[auth] API_KEY and SELLER_JWT_SECRET not set — skipping read auth in non-production');
+    return next();
+  }
+
+  const token = getBearerToken(req.headers.authorization);
+  if (!token) {
+    return res.status(401).json({ error: 'Authorization header missing or not Bearer' });
+  }
+
+  // Shared API key — admin, can read any seller's data.
+  if (apiKey && token === apiKey) return next();
+
+  // Seller JWT — must be scoped to the wallet in the route param.
+  if (!secret) {
+    return res.status(503).json({ error: 'Server misconfigured: SELLER_JWT_SECRET is not set' });
+  }
+  const claims = verifySellerJwt(token, secret);
+  if (!claims) {
+    return res.status(401).json({ error: 'Invalid or expired seller token' });
+  }
+  const paramWallet = req.params['sellerWallet'];
+  if (paramWallet && claims.sellerWallet !== paramWallet) {
+    return res.status(403).json({ error: 'Token wallet does not match requested seller' });
+  }
+  req.sellerAuth = claims;
+  next();
+}
+
 /** Protects seller dashboard reads with a non-optional, expiring HS256 JWT. */
 export function requireSellerJwt(req: Request, res: Response, next: NextFunction) {
   const secret = process.env.SELLER_JWT_SECRET;

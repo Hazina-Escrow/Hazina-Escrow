@@ -12,9 +12,14 @@ import {
 } from '../common/storage';
 import { validateBody } from '../common/validate';
 import { notifySeller, signPayload } from './webhook.service';
-import { requireApiKey } from '../common/auth.middleware';
+import {
+  requireApiKey,
+  requireSellerMutationAuth,
+  requireSellerReadAuth,
+} from '../common/auth.middleware';
 import { encryptSecret } from '../common/secret-crypto';
 import { processPayment } from '../payments/payments.service';
+import { logger } from '../lib/logger';
 
 /**
  * @openapi
@@ -297,7 +302,8 @@ webhooksRouter.post(
  *                     $ref: '#/components/schemas/Webhook'
  */
 // GET /api/webhooks/:sellerWallet — list webhooks for a seller
-webhooksRouter.get('/:sellerWallet', async (req: Request, res: Response) => {
+// Requires shared API key (admin) OR seller JWT scoped to this wallet.
+webhooksRouter.get('/:sellerWallet', requireSellerReadAuth, async (req: Request, res: Response) => {
   const webhooks = await getWebhooksForSeller(req.params.sellerWallet);
   return res.json({
     success: true,
@@ -323,10 +329,14 @@ webhooksRouter.get('/:sellerWallet', async (req: Request, res: Response) => {
  *         description: Webhook not found
  */
 // DELETE /api/webhooks/:id — remove a webhook
-webhooksRouter.delete('/:id', requireApiKey, async (req: Request, res: Response) => {
+// When authenticated via seller JWT, only the owning seller may delete their webhook.
+webhooksRouter.delete('/:id', requireSellerMutationAuth, async (req: Request, res: Response) => {
   const webhook = await getWebhookById(req.params.id);
   if (!webhook) {
     return res.status(404).json({ error: 'Webhook not found' });
+  }
+  if (req.sellerAuth && req.sellerAuth.sellerWallet !== webhook.sellerWallet) {
+    return res.status(403).json({ error: 'Not authorized to delete this webhook' });
   }
   await removeWebhook(req.params.id);
   return res.json({ success: true, message: 'Webhook deleted' });
@@ -352,12 +362,15 @@ webhooksRouter.delete('/:id', requireApiKey, async (req: Request, res: Response)
  *         description: Webhook not found
  */
 // POST /api/webhooks/:id/test — send a test ping event
-webhooksRouter.post('/:id/test', requireApiKey, async (req: Request, res: Response) => {
+// When authenticated via seller JWT, only the owning seller may trigger a test.
+webhooksRouter.post('/:id/test', requireSellerMutationAuth, async (req: Request, res: Response) => {
   const webhook = await getWebhookById(req.params.id);
   if (!webhook) {
     return res.status(404).json({ error: 'Webhook not found' });
   }
-
+  if (req.sellerAuth && req.sellerAuth.sellerWallet !== webhook.sellerWallet) {
+    return res.status(403).json({ error: 'Not authorized to test this webhook' });
+  }
   if (!webhook.active) {
     return res.status(400).json({ error: 'Webhook is inactive' });
   }
@@ -417,14 +430,18 @@ webhooksRouter.post('/:id/test', requireApiKey, async (req: Request, res: Respon
  *         description: Webhook not found
  */
 // PATCH /api/webhooks/:id — update webhook (url, secret, events, active)
+// When authenticated via seller JWT, only the owning seller may update their webhook.
 webhooksRouter.patch(
   '/:id',
-  requireApiKey,
+  requireSellerMutationAuth,
   validateBody(updateWebhookSchema),
   async (req: Request, res: Response) => {
     const webhook = await getWebhookById(req.params.id);
     if (!webhook) {
       return res.status(404).json({ error: 'Webhook not found' });
+    }
+    if (req.sellerAuth && req.sellerAuth.sellerWallet !== webhook.sellerWallet) {
+      return res.status(403).json({ error: 'Not authorized to update this webhook' });
     }
 
     const updates = req.body as z.infer<typeof updateWebhookSchema>;
