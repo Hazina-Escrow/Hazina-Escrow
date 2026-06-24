@@ -521,25 +521,6 @@ datasetsRouter.get('/:id', async (req: Request, res: Response) => {
   return res.json({ success: true, dataset: toDatasetDetail(dataset) });
 });
 
-const ratingSchema = z.object({ score: z.coerce.number().int().min(1).max(5) });
-
-datasetsRouter.post(
-  '/:id/ratings',
-  validateBody(ratingSchema),
-  async (req: Request, res: Response) => {
-    const dataset = await getDataset(req.params.id);
-    if (!dataset) return res.status(404).json({ error: 'Dataset not found' });
-    const { score } = req.body as z.infer<typeof ratingSchema>;
-    const current = dataset.ratings ?? { score: 0, count: 0 };
-    const count = current.count + 1;
-    const average = Number(((current.score * current.count + score) / count).toFixed(2));
-    const updated = await updateDataset(dataset.id, { ratings: { score: average, count } });
-    return res
-      .status(201)
-      .json({ success: true, ratings: updated?.ratings ?? { score: average, count } });
-  },
-);
-
 /**
  * @openapi
  * /api/datasets/{id}/transactions:
