@@ -25,8 +25,6 @@ import {
 
 import { api, DatasetMeta, SellerAnalytics, Transaction } from '../lib/api';
 
-import { api, DatasetMeta, PaginatedDatasets, Transaction } from '../lib/api';
-
 import { useCountUp } from '../hooks/useCountUp';
 import { formatUSDC, getTypeMeta, truncateAddress } from '../lib/utils';
 import { Link } from 'react-router-dom';
@@ -173,8 +171,6 @@ export default function DashboardPage() {
 
   const [analytics, setAnalytics] = useState<SellerAnalytics | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview');
-
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
   const [isMobile, setIsMobile] = useState(false);
   const hasLoadedOnceRef = useRef(false);

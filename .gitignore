@@ -10,6 +10,8 @@ backend/backups/
 backups/
 backend/coverage/
 frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
 
 # Avoid committing property-test snapshot explosions (enable with `--features fuzz-tests` if needed).
 contracts/hazina-escrow/test_snapshots/fuzz_tests/

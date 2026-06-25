@@ -123,6 +123,7 @@ export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true 
         res = await api.verifyPayment(dataset.id, txHash.trim(), buyerQuestion);
       }
       clearVerifyTimer();
+      console.log('QUERY_RESULT', res);
       setResult(res);
       setStep('result');
       toastSuccess(t('queryModal.result.paymentVerified'), dataset.name);
@@ -606,6 +607,7 @@ export default function QueryModal({ dataset, onClose, onSuccess, isOpen = true 
                 </div>
               </div>
 
+              <pre className="text-xs text-red-400 mb-3">{JSON.stringify(result, null, 2)}</pre>
               {/* AI Summary */}
               <div className="mb-5 p-4 rounded-xl bg-gradient-to-br from-gold/5 to-transparent border border-gold/15">
                 <div className="flex items-center gap-2 mb-3">
