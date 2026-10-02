@@ -1,7 +1,7 @@
 {
   "name": "@hazina/mcp-server",
   "version": "0.1.0",
-  "description": "Model Context Protocol server for the Hazina data marketplace — search, quote, and buy datasets from any MCP-compatible AI agent.",
+  "description": "Model Context Protocol server for the Hazina data marketplace \u2014 search, quote, and buy datasets from any MCP-compatible AI agent.",
   "type": "module",
   "bin": {
     "hazina-mcp": "dist/index.js"
@@ -12,9 +12,9 @@
     "dist"
   ],
   "scripts": {
-    "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "start": "node init && node dist/index.js",
+    "dev": "node init && tsx watch src/index.ts",
+    "build": "node init && tsc",
     "typecheck": "tsc --noEmit",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src",
     "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint src --fix",

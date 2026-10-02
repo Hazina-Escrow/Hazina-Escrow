@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "node init && vite",
+    "build": "node init && tsc && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "e2e": "playwright test",
@@ -17,7 +17,7 @@
     "test:e2e:ui": "playwright test --ui",
     "coverage": "vitest run --coverage",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "node init && storybook build"
   },
   "dependencies": {
     "@stellar/freighter-api": "^2.0.0",
