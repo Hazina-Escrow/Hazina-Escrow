@@ -79,6 +79,7 @@ import {
 } from './snapshots/snapshots.compaction';
 import { HORIZON_URL } from './lib/stellar.config';
 import { createCorsOptions } from './common/cors';
+import { oracleRouter } from './providers/oracle.router';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -320,6 +321,7 @@ const v1Router = express.Router();
 
 v1Router.use('/datasets', datasetsRouter);
 v1Router.use('/datasets', snapshotsRouter);
+v1Router.use('/oracle', oracleRouter);
 // Access-pass subscription routes share the /datasets prefix (e.g.
 // /api/v1/datasets/:id/access-pass) and self-guard with 503 when the
 // ACCESS_PASS_CONTRACT_ID is unset.
@@ -366,6 +368,7 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
 // Routes
 app.use('/api/datasets', datasetsRouter);
 app.use('/api/datasets', snapshotsRouter);
+app.use('/api/oracle', oracleRouter);
 app.use('/api/datasets', accessPassRouter);
 app.use('/api', paymentsRouter);
 app.use('/api', escrowRouter);
